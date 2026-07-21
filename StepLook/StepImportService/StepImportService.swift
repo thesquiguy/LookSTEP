@@ -22,7 +22,7 @@ final class StepImportService: NSObject, StepImportServiceProtocol {
         }
         session.startWatchdog(after: max(1, maxSeconds))
 
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        DispatchQueue.global(qos: .userInteractive).async { [weak self] in
             autoreleasepool {
                 let stagedURL = Self.temporarySTEPURL(sourceExtension: sourceExtension)
                 defer {
@@ -137,7 +137,7 @@ private final class ImportSession: @unchecked Sendable {
         // Give timeout replies enough time to cross the XPC boundary before the
         // watchdog tears down an importer that may still be blocked in OCCT.
         // User cancellation stays fast so closing Quick Look promptly cleans up.
-        let forcedExitDelay: TimeInterval = code == NSUserCancelledError ? 1 : 3
+        let forcedExitDelay: TimeInterval = 1
         DispatchQueue.global(qos: .utility).asyncAfter(
             deadline: .now() + forcedExitDelay,
             execute: action

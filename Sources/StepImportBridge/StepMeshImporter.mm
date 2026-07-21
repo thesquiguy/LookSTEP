@@ -4,6 +4,7 @@
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRep_Tool.hxx>
 #include <Bnd_Box.hxx>
+#include <DESTEP_Parameters.hxx>
 #include <IFSelect_ReturnStatus.hxx>
 #include <IMeshTools_Parameters.hxx>
 #include <Poly_Triangulation.hxx>
@@ -119,10 +120,31 @@ std::string LabelID(const TDF_Label &label) {
 double ShapeDiagonal(const TopoDS_Shape &shape) {
     Bnd_Box box;
     BRepBndLib::Add(shape, box, Standard_False);
-    if (box.IsVoid() || box.IsOpen()) return 0;
-    Standard_Real xmin, ymin, zmin, xmax, ymax, zmax;
-    box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
-    return std::hypot(std::hypot(xmax - xmin, ymax - ymin), zmax - zmin);
+    if (!box.IsVoid() && !box.IsOpen()) {
+        Standard_Real xmin, ymin, zmin, xmax, ymax, zmax;
+        box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+        return std::hypot(std::hypot(xmax - xmin, ymax - ymin), zmax - zmin);
+    }
+
+    double xmin = std::numeric_limits<double>::max();
+    double ymin = std::numeric_limits<double>::max();
+    double zmin = std::numeric_limits<double>::max();
+    double xmax = -std::numeric_limits<double>::max();
+    double ymax = -std::numeric_limits<double>::max();
+    double zmax = -std::numeric_limits<double>::max();
+    bool foundVertex = false;
+    for (TopExp_Explorer explorer(shape, TopAbs_VERTEX); explorer.More(); explorer.Next()) {
+        const gp_Pnt point = BRep_Tool::Pnt(TopoDS::Vertex(explorer.Current()));
+        if (!std::isfinite(point.X()) || !std::isfinite(point.Y()) || !std::isfinite(point.Z())) continue;
+        foundVertex = true;
+        xmin = std::min(xmin, point.X());
+        ymin = std::min(ymin, point.Y());
+        zmin = std::min(zmin, point.Z());
+        xmax = std::max(xmax, point.X());
+        ymax = std::max(ymax, point.Y());
+        zmax = std::max(zmax, point.Z());
+    }
+    return foundVertex ? std::hypot(std::hypot(xmax - xmin, ymax - ymin), zmax - zmin) : 0;
 }
 
 bool StyleLinearColor(const XCAFPrs_Style &style, std::array<float, 4> &result) {
@@ -199,7 +221,10 @@ Mesh Tessellate(const TopoDS_Shape &shape,
                 const TDF_Label &definitionLabel,
                 double relativeDeflection,
                 double minimumDeflection,
-                double maximumDeflection) {
+                double maximumDeflection,
+                double &mesherSeconds,
+                double &styleSeconds,
+                double &extractSeconds) {
     const double diagonal = ShapeDiagonal(shape);
     if (!(diagonal > 0) || !std::isfinite(diagonal)) {
         throw std::runtime_error("A part has no finite bounds.");
@@ -213,9 +238,12 @@ Mesh Tessellate(const TopoDS_Shape &shape,
     parameters.Angle = kAngularDeflection;
     parameters.Relative = Standard_False;
     parameters.InParallel = Standard_True;
+    const auto mesherStart = std::chrono::steady_clock::now();
     BRepMesh_IncrementalMesh mesher(shape, parameters);
+    mesherSeconds += SecondsSince(mesherStart);
     if (!mesher.IsDone()) throw std::runtime_error("OpenCascade tessellation did not complete.");
 
+    const auto styleStart = std::chrono::steady_clock::now();
     XCAFPrs_IndexedDataMapOfShapeStyle styles;
     XCAFPrs::CollectStyleSettings(definitionLabel, TopLoc_Location(), styles);
     TopTools_DataMapOfShapeInteger colorIndexByFace;
@@ -225,8 +253,23 @@ Mesh Tessellate(const TopoDS_Shape &shape,
     // Only descendant subshape styles become explicit face overrides in the shared mesh.
     CollectInheritedFaceColors(shape, styles, false, false, noColor,
                                colorIndexByFace, faceColors);
+    styleSeconds += SecondsSince(styleStart);
 
+    const auto extractStart = std::chrono::steady_clock::now();
     Mesh mesh;
+    size_t totalNodes = 0;
+    size_t totalIndices = 0;
+    for (TopExp_Explorer explorer(shape, TopAbs_FACE); explorer.More(); explorer.Next()) {
+        TopLoc_Location faceLocation;
+        const Handle(Poly_Triangulation) triangulation = BRep_Tool::Triangulation(
+            TopoDS::Face(explorer.Current()), faceLocation);
+        if (triangulation.IsNull()) continue;
+        totalNodes += static_cast<size_t>(triangulation->NbNodes());
+        totalIndices += 3 * static_cast<size_t>(triangulation->NbTriangles());
+    }
+    mesh.positions.reserve(totalNodes);
+    mesh.normals.reserve(totalNodes);
+    mesh.indices.reserve(totalIndices);
     Float3 minimum{std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
     Float3 maximum{-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max()};
 
@@ -244,8 +287,6 @@ Mesh Tessellate(const TopoDS_Shape &shape,
         const uint32_t base = static_cast<uint32_t>(mesh.positions.size());
         const gp_Trsf &faceTransform = faceLocation.Transformation();
         const bool reversed = face.Orientation() == TopAbs_REVERSED;
-        mesh.positions.reserve(mesh.positions.size() + triangulation->NbNodes());
-        mesh.normals.reserve(mesh.normals.size() + triangulation->NbNodes());
         for (Standard_Integer index = 1; index <= triangulation->NbNodes(); ++index) {
             const gp_Pnt point = triangulation->Node(index).Transformed(faceTransform);
             gp_Dir normal = triangulation->Normal(index);
@@ -257,7 +298,6 @@ Mesh Tessellate(const TopoDS_Shape &shape,
             minimum = {std::min(minimum.x, p.x), std::min(minimum.y, p.y), std::min(minimum.z, p.z)};
             maximum = {std::max(maximum.x, p.x), std::max(maximum.y, p.y), std::max(maximum.z, p.z)};
         }
-        mesh.indices.reserve(mesh.indices.size() + 3 * triangulation->NbTriangles());
         const uint32_t indexOffset = static_cast<uint32_t>(mesh.indices.size());
         for (Standard_Integer index = 1; index <= triangulation->NbTriangles(); ++index) {
             Standard_Integer a, b, c;
@@ -276,6 +316,7 @@ Mesh Tessellate(const TopoDS_Shape &shape,
     }
     if (mesh.indices.empty()) throw std::runtime_error("A part did not contain meshable faces.");
     mesh.bounds = {minimum.x, minimum.y, minimum.z, maximum.x, maximum.y, maximum.z};
+    extractSeconds += SecondsSince(extractStart);
     return mesh;
 }
 
@@ -318,19 +359,58 @@ Float3 TransformPoint(const std::array<float, 12> &m, float x, float y, float z)
 
         STEPCAFControl_Reader reader;
         reader.SetColorMode(Standard_True);
-        reader.SetSHUOMode(Standard_True);
-        reader.SetMatMode(Standard_True);
-        reader.SetNameMode(Standard_True);
-        if (reader.ReadFile(path.fileSystemRepresentation) != IFSelect_RetDone) {
+        reader.SetSHUOMode(Standard_False);
+        reader.SetMatMode(Standard_False);
+        reader.SetNameMode(Standard_False);
+        reader.SetLayerMode(Standard_False);
+        reader.SetPropsMode(Standard_False);
+        reader.SetMetaMode(Standard_False);
+        reader.SetProductMetaMode(Standard_False);
+        reader.SetGDTMode(Standard_False);
+        reader.SetViewMode(Standard_False);
+        const auto readStart = std::chrono::steady_clock::now();
+        DESTEP_Parameters readParameters;
+        readParameters.InitFromStatic();
+        readParameters.ReadName = false;
+        readParameters.ReadLayer = false;
+        readParameters.ReadProps = false;
+        readParameters.ReadMetadata = false;
+        readParameters.ReadProductMetadata = false;
+        readParameters.ReadTessellated = DESTEP_Parameters::RWMode_Tessellated_OnNoBRep;
+        if (reader.ReadFile(path.fileSystemRepresentation, readParameters) != IFSelect_RetDone) {
             if (error) *error = MakeError(ImportErrorCode::unreadable, @"This STEP file could not be read.");
             application->Close(document);
             return nil;
         }
+        const double readSeconds = SecondsSince(readStart);
+        // Quick Look needs meshable faces, not a fully repaired editable B-rep.
+        // Keep core shell/face repair while skipping expensive diagnostic cleanup.
+        DE_ShapeFixParameters shapeFix = DESTEP_Parameters::GetDefaultShapeFixParameters();
+        using FixMode = DE_ShapeFixParameters::FixMode;
+        shapeFix.FixShellOrientationMode = FixMode::NotFix;
+        shapeFix.FixFaceOrientationMode = FixMode::NotFix;
+        shapeFix.FixSameParameterMode = FixMode::NotFix;
+        shapeFix.FixSmallAreaWireMode = FixMode::NotFix;
+        shapeFix.RemoveSmallAreaFaceMode = FixMode::NotFix;
+        shapeFix.FixIntersectingWiresMode = FixMode::NotFix;
+        shapeFix.FixLoopWiresMode = FixMode::NotFix;
+        shapeFix.FixSplitFaceMode = FixMode::NotFix;
+        shapeFix.FixSmallMode = FixMode::NotFix;
+        shapeFix.FixConnectedMode = FixMode::NotFix;
+        shapeFix.FixSelfIntersectionMode = FixMode::NotFix;
+        shapeFix.FixNotchedEdgesMode = FixMode::NotFix;
+        shapeFix.FixSelfIntersectingEdgeMode = FixMode::NotFix;
+        shapeFix.FixIntersectingEdgesMode = FixMode::NotFix;
+        shapeFix.FixNonAdjacentIntersectingEdgesMode = FixMode::NotFix;
+        shapeFix.FixVertexToleranceMode = FixMode::NotFix;
+        reader.SetShapeFixParameters(shapeFix);
+        const auto transferStart = std::chrono::steady_clock::now();
         if (!reader.Transfer(document)) {
             if (error) *error = MakeError(ImportErrorCode::transferFailed, @"The STEP file did not contain transferable geometry.");
             application->Close(document);
             return nil;
         }
+        const double transferSeconds = SecondsSince(transferStart);
         const double parseSeconds = SecondsSince(parseStart);
         const auto meshStart = std::chrono::steady_clock::now();
 
@@ -339,6 +419,9 @@ Float3 TransformPoint(const std::array<float, 12> &m, float x, float y, float z)
         std::vector<Mesh> definitions;
         std::vector<Occurrence> occurrences;
         uint64_t uniqueTriangleCount = 0;
+        double mesherSeconds = 0;
+        double styleSeconds = 0;
+        double extractSeconds = 0;
 
         XCAFPrs_DocumentExplorer explorer(document, XCAFPrs_DocumentExplorerFlags_OnlyLeafNodes);
         for (; explorer.More(); explorer.Next()) {
@@ -350,7 +433,8 @@ Float3 TransformPoint(const std::array<float, 12> &m, float x, float y, float z)
                 const TopoDS_Shape shape = shapeTool->GetShape(definitionLabel);
                 if (shape.IsNull()) throw std::runtime_error("A referenced part has no shape.");
                 Mesh mesh = Tessellate(shape, definitionLabel, relativeDeflection,
-                                       minimumDeflection, maximumDeflection);
+                                       minimumDeflection, maximumDeflection,
+                                       mesherSeconds, styleSeconds, extractSeconds);
                 uniqueTriangleCount += mesh.indices.size() / 3;
                 const uint32_t index = static_cast<uint32_t>(definitions.size());
                 definitions.push_back(std::move(mesh));
@@ -400,6 +484,7 @@ Float3 TransformPoint(const std::array<float, 12> &m, float x, float y, float z)
         }
 
         const double meshSeconds = SecondsSince(meshStart);
+        const auto serializeStart = std::chrono::steady_clock::now();
         NSMutableData *archive = [NSMutableData data];
         const char magic[4] = {'S', 'T', 'L', 'K'};
         [archive appendBytes:magic length:4];
@@ -420,9 +505,19 @@ Float3 TransformPoint(const std::array<float, 12> &m, float x, float y, float z)
             AppendUInt32(archive, static_cast<uint32_t>(mesh.indices.size()));
             AppendUInt32(archive, static_cast<uint32_t>(mesh.materialGroups.size()));
             for (float value : mesh.bounds) AppendFloat(archive, value);
+            static_assert(sizeof(Float3) == 3 * sizeof(float));
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+            [archive appendBytes:mesh.positions.data()
+                           length:mesh.positions.size() * sizeof(Float3)];
+            [archive appendBytes:mesh.normals.data()
+                           length:mesh.normals.size() * sizeof(Float3)];
+            [archive appendBytes:mesh.indices.data()
+                           length:mesh.indices.size() * sizeof(uint32_t)];
+#else
             for (const Float3 &p : mesh.positions) { AppendFloat(archive, p.x); AppendFloat(archive, p.y); AppendFloat(archive, p.z); }
             for (const Float3 &n : mesh.normals) { AppendFloat(archive, n.x); AppendFloat(archive, n.y); AppendFloat(archive, n.z); }
             for (uint32_t index : mesh.indices) AppendUInt32(archive, index);
+#endif
             for (const MaterialGroup &group : mesh.materialGroups) {
                 AppendUInt32(archive, group.indexOffset);
                 AppendUInt32(archive, group.indexCount);
@@ -437,8 +532,16 @@ Float3 TransformPoint(const std::array<float, 12> &m, float x, float y, float z)
             for (float value : occurrence.color) AppendFloat(archive, value);
         }
 
+        const double serializeSeconds = SecondsSince(serializeStart);
+        const auto closeStart = std::chrono::steady_clock::now();
+        application->Close(document);
+        const double closeSeconds = SecondsSince(closeStart);
         if (metrics) {
-            *metrics = @{@"parseSeconds": @(parseSeconds), @"meshSeconds": @(meshSeconds),
+            *metrics = @{@"parseSeconds": @(parseSeconds), @"readSeconds": @(readSeconds),
+                         @"transferSeconds": @(transferSeconds), @"meshSeconds": @(meshSeconds),
+                         @"mesherSeconds": @(mesherSeconds), @"styleSeconds": @(styleSeconds),
+                         @"extractSeconds": @(extractSeconds), @"serializeSeconds": @(serializeSeconds),
+                         @"closeSeconds": @(closeSeconds), @"totalSeconds": @(SecondsSince(parseStart)),
                          @"triangles": @(displayedTriangles), @"uniqueTriangles": @(uniqueTriangleCount),
                          @"faces": @(totalFaces), @"missingFaces": @(missingFaces),
                          @"materialGroups": @(materialGroups),
@@ -446,7 +549,6 @@ Float3 TransformPoint(const std::array<float, 12> &m, float x, float y, float z)
                          @"definitions": @(definitions.size()), @"occurrences": @(occurrences.size()),
                          @"archiveBytes": @(archive.length)};
         }
-        application->Close(document);
         return archive;
     } catch (const Standard_Failure &failure) {
         if (error) {

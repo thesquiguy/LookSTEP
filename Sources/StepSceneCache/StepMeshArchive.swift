@@ -73,7 +73,7 @@ nonisolated struct StepMeshData: Sendable {
 
 nonisolated enum StepMeshArchive {
     static let version: UInt32 = 3
-    static let importerCompatibility = "step-importer-v6-inherited-styles-occt-7.9.3"
+    static let importerCompatibility = "step-importer-v7-preview-healing-occt-7.9.3"
     private static let headerSize = 76
     private static let maximumDefinitions = 20_000
     private static let maximumOccurrences = 200_000

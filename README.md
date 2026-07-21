@@ -60,25 +60,24 @@ slow or fail to preview.
 
 ## Measured preview times
 
-Measured with LookSTEP 0.1.0 and OCCT 7.9.3 on an M1 MacBook Air with 8 GB of
-memory. Times run from Quick Look invoking LookSTEP's preview extension to the
-first presented geometry frame. Each uncached result uses a new file path;
-successful cached results reopen that same file.
+Measured with OCCT 7.9.3 on an M1 MacBook Air with 8 GB of memory. Times run
+from Quick Look invoking LookSTEP's preview extension to the first presented
+geometry frame. Each uncached result uses a new file path; successful cached
+results reopen that same file.
 
 | Anonymous model | Size | Definitions / instances | Triangles | Uncached | Cached | Median uncached peak RSS |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Tiny single part | 0.22 MB | 1 / 1 | 9,316 | 0.55 s | 0.25 s | 180 MiB |
 | Small colored electronics | 0.40 MB | 1 / 1 | 894 | 0.42 s | 0.26 s | 189 MiB |
 | Medium instanced assembly | 6.9 MB | 33 / 93 | 419,736 | 7.18 s | 2.48 s | 284 MiB |
-| Large complex shell | 25.7 MB | — | — | Timed out 3/3 at 15.29 s | — | 731 MiB |
-| Large colored model | 35.5 MB | 1 / 1 | 145,250 (4 faces missing) | Opened 2/3 in 14.6–15.5 s; 1 timeout | 0.34 s | 1,030 MiB |
+| Large complex shell | 25.7 MB | 1 / 1 | 348,070 (1 face missing) | 12.53 s (0.1.1) | — | 731 MiB |
+| Large colored model | 35.5 MB | 1 / 1 | 145,250 (4 faces missing) | 11.36 s (0.1.1) | 0.34 s | 1,030 MiB |
 | Stress assembly | 61.8 MB | — | — | Timed out 3/3 at 15.31 s | — | 517 MiB |
 
-Successful time values are medians of three trials. The large colored model
-instead shows the range of its two successful uncached trials and the median of
-its two successful cached trials; its third attempt timed out at 15.23 seconds
-and produced no cache. Timeout values and combined peak RSS are medians of all
-three uncached attempts. File size alone does not predict STEP complexity.
+The 0.1.0 time values are medians of three trials. The two 0.1.1 uncached
+entries are cool-system verification runs; rapid back-to-back imports can be
+slower on this fanless Mac. Peak RSS was measured with 0.1.0. File size alone
+does not predict STEP complexity.
 
 ## Contributing
 

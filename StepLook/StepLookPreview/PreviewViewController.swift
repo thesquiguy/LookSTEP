@@ -156,7 +156,7 @@ private struct PreviewImportBudget {
             seconds = 12
         case ...50_000_000:
             scale = 4
-            seconds = 15
+            seconds = 20
         default:
             scale = 8
             seconds = 15
