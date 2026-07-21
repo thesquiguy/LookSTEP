@@ -8,6 +8,10 @@ It is built for one job: checking a model quickly. The preview uses a clean
 white background, CAD-style navigation, STEP colors, assembly structure, and a
 single Fit control for quick screenshots.
 
+![Raspberry Pi assembly shown in LookSTEP's Finder Quick Look preview](docs/images/lookstep-raspberry-pi-quick-look.jpg)
+
+*A Raspberry Pi assembly previewed directly in Finder with Quick Look.*
+
 ## Features
 
 - Interactive Finder Quick Look previews and large Column View previews.
@@ -65,6 +69,10 @@ Run `bash install.sh --help` for all options. See
 troubleshooting.
 
 ## Use it
+
+![Fitted side view of a Raspberry Pi assembly in LookSTEP](docs/images/lookstep-raspberry-pi-side-view.jpg)
+
+*Orbit around any point, then use Fit to tightly reframe the model.*
 
 1. Select a `.step` or `.stp` file in Finder.
 2. Press Spacebar, or show Finder's preview pane in Column View.
