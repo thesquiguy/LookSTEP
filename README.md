@@ -23,11 +23,15 @@ file and press Spacebar to inspect it.
 Requires an Apple Silicon Mac running macOS 15 or later, Xcode, and
 [Homebrew](https://brew.sh/).
 
-Download this repository, open Terminal in the source folder, and run:
+1. [Download LookSTEP](https://github.com/thesquiguy/LookSTEP/archive/refs/heads/main.zip)
+   and open the ZIP file.
+2. Open Terminal and type `cd `, including the space. Drag the unzipped
+   `LookSTEP-main` folder into the Terminal window, then press Return.
+3. Run:
 
-```sh
-bash install.sh
-```
+   ```sh
+   bash install.sh
+   ```
 
 The installer builds LookSTEP and installs it in `/Applications`. To install it
 in your personal Applications folder instead, run `bash install.sh --user`.
