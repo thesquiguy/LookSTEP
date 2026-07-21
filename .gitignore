@@ -1,0 +1,21 @@
+# macOS and Xcode
+.DS_Store
+DerivedData/
+build/
+xcuserdata/
+*.xcuserstate
+
+# Local signing and machine-specific overrides
+*.local.xcconfig
+*.p12
+*.mobileprovision
+*.provisionprofile
+
+# Private CAD corpus: keep raw personal STEP files out of Git history.
+TestFiles/Private/
+
+# Generated benchmark output and cache data
+TestFiles/Benchmarks/
+TestFiles/Generated/
+*.stepcache
+*.scenepkg

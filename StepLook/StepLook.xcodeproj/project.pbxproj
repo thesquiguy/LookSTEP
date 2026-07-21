@@ -1,0 +1,1145 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA0000010000000000000001 /* StepImportService.xpc in Embed XPC Services */ = {isa = PBXBuildFile; fileRef = DF1DF89C300EC3EF004B3F9A /* StepImportService.xpc */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AA0000020000000000000002 /* StepImportService.xpc in Embed XPC Services */ = {isa = PBXBuildFile; fileRef = DF1DF89C300EC3EF004B3F9A /* StepImportService.xpc */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		DF1DF88B300EC3C8004B3F9A /* QuickLookThumbnailing.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF1DF88A300EC3C8004B3F9A /* QuickLookThumbnailing.framework */; };
+		DF1DF88C300EC3C8004B3F9A /* Quartz.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF652A35300EC34C00B01C8B /* Quartz.framework */; };
+		DF1DF8A7300EC3EF004B3F9A /* StepImportService.xpc in Embed XPC Services */ = {isa = PBXBuildFile; fileRef = DF1DF89C300EC3EF004B3F9A /* StepImportService.xpc */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		DF652A36300EC34C00B01C8B /* Quartz.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF652A35300EC34C00B01C8B /* Quartz.framework */; };
+		DF652A42300EC34D00B01C8B /* StepLookPreview.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DF652A33300EC34C00B01C8B /* StepLookPreview.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AA0000030000000000000003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DF652A13300EC2D900B01C8B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DF1DF89B300EC3EF004B3F9A;
+			remoteInfo = StepImportService;
+		};
+		AA0000040000000000000004 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DF652A13300EC2D900B01C8B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DF1DF89B300EC3EF004B3F9A;
+			remoteInfo = StepImportService;
+		};
+		DF1DF8A5300EC3EF004B3F9A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DF652A13300EC2D900B01C8B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DF1DF89B300EC3EF004B3F9A;
+			remoteInfo = StepImportService;
+		};
+		DF1DF8B5300EC405004B3F9A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DF652A13300EC2D900B01C8B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DF652A1A300EC2D900B01C8B;
+			remoteInfo = LookSTEP;
+		};
+		DF652A40300EC34D00B01C8B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DF652A13300EC2D900B01C8B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DF652A32300EC34C00B01C8B;
+			remoteInfo = StepLookPreview;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AA0000050000000000000005 /* Embed XPC Services */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/XPCServices";
+			dstSubfolderSpec = 16;
+			files = (
+				AA0000010000000000000001 /* StepImportService.xpc in Embed XPC Services */,
+			);
+			name = "Embed XPC Services";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0000060000000000000006 /* Embed XPC Services */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/XPCServices";
+			dstSubfolderSpec = 16;
+			files = (
+				AA0000020000000000000002 /* StepImportService.xpc in Embed XPC Services */,
+			);
+			name = "Embed XPC Services";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DF1DF8AC300EC3EF004B3F9A /* Embed XPC Services */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/XPCServices";
+			dstSubfolderSpec = 16;
+			files = (
+				DF1DF8A7300EC3EF004B3F9A /* StepImportService.xpc in Embed XPC Services */,
+			);
+			name = "Embed XPC Services";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DF652A43300EC34D00B01C8B /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				DF652A42300EC34D00B01C8B /* StepLookPreview.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		DF1DF889300EC3C7004B3F9A /* StepLookThumbnail.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = StepLookThumbnail.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		DF1DF88A300EC3C8004B3F9A /* QuickLookThumbnailing.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuickLookThumbnailing.framework; path = System/Library/Frameworks/QuickLookThumbnailing.framework; sourceTree = SDKROOT; };
+		DF1DF89C300EC3EF004B3F9A /* StepImportService.xpc */ = {isa = PBXFileReference; explicitFileType = "wrapper.xpc-service"; includeInIndex = 0; path = StepImportService.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
+		DF1DF8B1300EC405004B3F9A /* StepLookTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StepLookTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DF652A1B300EC2D900B01C8B /* LookSTEP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LookSTEP.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DF652A33300EC34C00B01C8B /* StepLookPreview.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = StepLookPreview.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		DF652A35300EC34C00B01C8B /* Quartz.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Quartz.framework; path = System/Library/Frameworks/Quartz.framework; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A1000004300EC500004B3F9A /* Exceptions for "StepLook" folder in "LookSTEP" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = DF652A1A300EC2D900B01C8B /* LookSTEP */;
+		};
+		DF1DF896300EC3C8004B3F9A /* Exceptions for "StepLookThumbnail" folder in "StepLookThumbnail" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = DF1DF888300EC3C7004B3F9A /* StepLookThumbnail */;
+		};
+		DF1DF8A8300EC3EF004B3F9A /* Exceptions for "StepImportService" folder in "StepImportService" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = DF1DF89B300EC3EF004B3F9A /* StepImportService */;
+		};
+		DF652A46300EC34D00B01C8B /* Exceptions for "StepLookPreview" folder in "StepLookPreview" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = DF652A32300EC34C00B01C8B /* StepLookPreview */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		A1000001300EC500004B3F9A /* ../Sources/StepSceneCache */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ../Sources/StepSceneCache;
+			sourceTree = "<group>";
+		};
+		A1000002300EC500004B3F9A /* ../Sources/StepRendererRealityKit */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ../Sources/StepRendererRealityKit;
+			sourceTree = "<group>";
+		};
+		A1000003300EC500004B3F9A /* ../Sources/StepImportBridge */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ../Sources/StepImportBridge;
+			sourceTree = "<group>";
+		};
+		DF1DF88D300EC3C8004B3F9A /* StepLookThumbnail */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				DF1DF896300EC3C8004B3F9A /* Exceptions for "StepLookThumbnail" folder in "StepLookThumbnail" target */,
+			);
+			path = StepLookThumbnail;
+			sourceTree = "<group>";
+		};
+		DF1DF89D300EC3EF004B3F9A /* StepImportService */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				DF1DF8A8300EC3EF004B3F9A /* Exceptions for "StepImportService" folder in "StepImportService" target */,
+			);
+			path = StepImportService;
+			sourceTree = "<group>";
+		};
+		DF1DF8B2300EC405004B3F9A /* StepLookTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = StepLookTests;
+			sourceTree = "<group>";
+		};
+		DF652A1D300EC2D900B01C8B /* StepLook */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A1000004300EC500004B3F9A /* Exceptions for "StepLook" folder in "LookSTEP" target */,
+			);
+			path = StepLook;
+			sourceTree = "<group>";
+		};
+		DF652A37300EC34C00B01C8B /* StepLookPreview */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				DF652A46300EC34D00B01C8B /* Exceptions for "StepLookPreview" folder in "StepLookPreview" target */,
+			);
+			path = StepLookPreview;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		DF1DF886300EC3C7004B3F9A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DF1DF88B300EC3C8004B3F9A /* QuickLookThumbnailing.framework in Frameworks */,
+				DF1DF88C300EC3C8004B3F9A /* Quartz.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DF1DF899300EC3EF004B3F9A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DF1DF8AE300EC405004B3F9A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DF652A18300EC2D900B01C8B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DF652A30300EC34C00B01C8B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DF652A36300EC34C00B01C8B /* Quartz.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		DF652A12300EC2D900B01C8B = {
+			isa = PBXGroup;
+			children = (
+				A1000001300EC500004B3F9A /* ../Sources/StepSceneCache */,
+				A1000002300EC500004B3F9A /* ../Sources/StepRendererRealityKit */,
+				A1000003300EC500004B3F9A /* ../Sources/StepImportBridge */,
+				DF652A1D300EC2D900B01C8B /* StepLook */,
+				DF652A37300EC34C00B01C8B /* StepLookPreview */,
+				DF1DF88D300EC3C8004B3F9A /* StepLookThumbnail */,
+				DF1DF89D300EC3EF004B3F9A /* StepImportService */,
+				DF1DF8B2300EC405004B3F9A /* StepLookTests */,
+				DF652A34300EC34C00B01C8B /* Frameworks */,
+				DF652A1C300EC2D900B01C8B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		DF652A1C300EC2D900B01C8B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DF652A1B300EC2D900B01C8B /* LookSTEP.app */,
+				DF652A33300EC34C00B01C8B /* StepLookPreview.appex */,
+				DF1DF889300EC3C7004B3F9A /* StepLookThumbnail.appex */,
+				DF1DF89C300EC3EF004B3F9A /* StepImportService.xpc */,
+				DF1DF8B1300EC405004B3F9A /* StepLookTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		DF652A34300EC34C00B01C8B /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				DF652A35300EC34C00B01C8B /* Quartz.framework */,
+				DF1DF88A300EC3C8004B3F9A /* QuickLookThumbnailing.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		DF1DF888300EC3C7004B3F9A /* StepLookThumbnail */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DF1DF897300EC3C8004B3F9A /* Build configuration list for PBXNativeTarget "StepLookThumbnail" */;
+			buildPhases = (
+				DF1DF885300EC3C7004B3F9A /* Sources */,
+				DF1DF886300EC3C7004B3F9A /* Frameworks */,
+				DF1DF887300EC3C7004B3F9A /* Resources */,
+				AA0000060000000000000006 /* Embed XPC Services */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AA0000080000000000000008 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A1000001300EC500004B3F9A /* ../Sources/StepSceneCache */,
+				A1000002300EC500004B3F9A /* ../Sources/StepRendererRealityKit */,
+				DF1DF88D300EC3C8004B3F9A /* StepLookThumbnail */,
+			);
+			name = StepLookThumbnail;
+			packageProductDependencies = (
+			);
+			productName = StepLookThumbnail;
+			productReference = DF1DF889300EC3C7004B3F9A /* StepLookThumbnail.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		DF1DF89B300EC3EF004B3F9A /* StepImportService */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DF1DF8A9300EC3EF004B3F9A /* Build configuration list for PBXNativeTarget "StepImportService" */;
+			buildPhases = (
+				DF1DF898300EC3EF004B3F9A /* Sources */,
+				DF1DF899300EC3EF004B3F9A /* Frameworks */,
+				DF1DF89A300EC3EF004B3F9A /* Resources */,
+				AA0000090000000000000009 /* Bundle Runtime Libraries */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A1000003300EC500004B3F9A /* ../Sources/StepImportBridge */,
+				DF1DF89D300EC3EF004B3F9A /* StepImportService */,
+			);
+			name = StepImportService;
+			packageProductDependencies = (
+			);
+			productName = StepImportService;
+			productReference = DF1DF89C300EC3EF004B3F9A /* StepImportService.xpc */;
+			productType = "com.apple.product-type.xpc-service";
+		};
+		DF1DF8B0300EC405004B3F9A /* StepLookTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DF1DF8B7300EC405004B3F9A /* Build configuration list for PBXNativeTarget "StepLookTests" */;
+			buildPhases = (
+				DF1DF8AD300EC405004B3F9A /* Sources */,
+				DF1DF8AE300EC405004B3F9A /* Frameworks */,
+				DF1DF8AF300EC405004B3F9A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DF1DF8B6300EC405004B3F9A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				DF1DF8B2300EC405004B3F9A /* StepLookTests */,
+			);
+			name = StepLookTests;
+			packageProductDependencies = (
+			);
+			productName = StepLookTests;
+			productReference = DF1DF8B1300EC405004B3F9A /* StepLookTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		DF652A1A300EC2D900B01C8B /* LookSTEP */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DF652A26300EC2DB00B01C8B /* Build configuration list for PBXNativeTarget "LookSTEP" */;
+			buildPhases = (
+				DF652A17300EC2D900B01C8B /* Sources */,
+				DF652A18300EC2D900B01C8B /* Frameworks */,
+				DF652A19300EC2D900B01C8B /* Resources */,
+				DF652A43300EC34D00B01C8B /* Embed Foundation Extensions */,
+				DF1DF8AC300EC3EF004B3F9A /* Embed XPC Services */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DF652A41300EC34D00B01C8B /* PBXTargetDependency */,
+				DF1DF8A6300EC3EF004B3F9A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A1000001300EC500004B3F9A /* ../Sources/StepSceneCache */,
+				A1000002300EC500004B3F9A /* ../Sources/StepRendererRealityKit */,
+				DF652A1D300EC2D900B01C8B /* StepLook */,
+			);
+			name = LookSTEP;
+			packageProductDependencies = (
+			);
+			productName = LookSTEP;
+			productReference = DF652A1B300EC2D900B01C8B /* LookSTEP.app */;
+			productType = "com.apple.product-type.application";
+		};
+		DF652A32300EC34C00B01C8B /* StepLookPreview */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DF652A47300EC34D00B01C8B /* Build configuration list for PBXNativeTarget "StepLookPreview" */;
+			buildPhases = (
+				DF652A2F300EC34C00B01C8B /* Sources */,
+				DF652A30300EC34C00B01C8B /* Frameworks */,
+				DF652A31300EC34C00B01C8B /* Resources */,
+				AA0000050000000000000005 /* Embed XPC Services */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AA0000070000000000000007 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A1000001300EC500004B3F9A /* ../Sources/StepSceneCache */,
+				A1000002300EC500004B3F9A /* ../Sources/StepRendererRealityKit */,
+				DF652A37300EC34C00B01C8B /* StepLookPreview */,
+			);
+			name = StepLookPreview;
+			packageProductDependencies = (
+			);
+			productName = StepLookPreview;
+			productReference = DF652A33300EC34C00B01C8B /* StepLookPreview.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		DF652A13300EC2D900B01C8B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					DF1DF888300EC3C7004B3F9A = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					DF1DF89B300EC3EF004B3F9A = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					DF1DF8B0300EC405004B3F9A = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = DF652A1A300EC2D900B01C8B;
+					};
+					DF652A1A300EC2D900B01C8B = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					DF652A32300EC34C00B01C8B = {
+						CreatedOnToolsVersion = 26.6;
+					};
+				};
+			};
+			buildConfigurationList = DF652A16300EC2D900B01C8B /* Build configuration list for PBXProject "StepLook" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = DF652A12300EC2D900B01C8B;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = DF652A1C300EC2D900B01C8B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				DF652A1A300EC2D900B01C8B /* LookSTEP */,
+				DF652A32300EC34C00B01C8B /* StepLookPreview */,
+				DF1DF888300EC3C7004B3F9A /* StepLookThumbnail */,
+				DF1DF89B300EC3EF004B3F9A /* StepImportService */,
+				DF1DF8B0300EC405004B3F9A /* StepLookTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		DF1DF887300EC3C7004B3F9A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DF1DF89A300EC3EF004B3F9A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DF1DF8AF300EC405004B3F9A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DF652A19300EC2D900B01C8B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DF652A31300EC34C00B01C8B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		AA0000090000000000000009 /* Bundle Runtime Libraries */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)",
+				"$(SRCROOT)/../Scripts/embed_occt_dylibs.sh",
+				"$(SRCROOT)/../THIRD_PARTY.md",
+				"$(SRCROOT)/../ThirdPartyNotices",
+			);
+			name = "Bundle Runtime Libraries";
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Resources/.steplook-bundled-dylibs",
+				"$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Resources/THIRD_PARTY.md",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/../Scripts/embed_occt_dylibs.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		DF1DF885300EC3C7004B3F9A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DF1DF898300EC3EF004B3F9A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DF1DF8AD300EC405004B3F9A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DF652A17300EC2D900B01C8B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DF652A2F300EC34C00B01C8B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AA0000070000000000000007 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DF1DF89B300EC3EF004B3F9A /* StepImportService */;
+			targetProxy = AA0000030000000000000003 /* PBXContainerItemProxy */;
+		};
+		AA0000080000000000000008 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DF1DF89B300EC3EF004B3F9A /* StepImportService */;
+			targetProxy = AA0000040000000000000004 /* PBXContainerItemProxy */;
+		};
+		DF1DF8A6300EC3EF004B3F9A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DF1DF89B300EC3EF004B3F9A /* StepImportService */;
+			targetProxy = DF1DF8A5300EC3EF004B3F9A /* PBXContainerItemProxy */;
+		};
+		DF1DF8B6300EC405004B3F9A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DF652A1A300EC2D900B01C8B /* LookSTEP */;
+			targetProxy = DF1DF8B5300EC405004B3F9A /* PBXContainerItemProxy */;
+		};
+		DF652A41300EC34D00B01C8B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DF652A32300EC34C00B01C8B /* StepLookPreview */;
+			targetProxy = DF652A40300EC34D00B01C8B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		DF1DF894300EC3C8004B3F9A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = StepLookThumbnail/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "LookSTEP Thumbnail";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.stepviewer.StepLook.StepLookThumbnail;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		DF1DF895300EC3C8004B3F9A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = StepLookThumbnail/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "LookSTEP Thumbnail";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.stepviewer.StepLook.StepLookThumbnail;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		DF1DF8AA300EC3EF004B3F9A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				HOMEBREW_PREFIX = /opt/homebrew;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(OCCT_ROOT)/include/opencascade",
+				);
+				INFOPLIST_FILE = StepImportService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = StepImportService;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(OCCT_ROOT)/lib",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.0;
+				OCCT_ROOT = /opt/homebrew/opt/opencascade;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lTKDESTEP",
+					"-lTKXCAF",
+					"-lTKVCAF",
+					"-lTKV3d",
+					"-lTKMesh",
+					"-lTKService",
+					"-lTKHLR",
+					"-lTKDE",
+					"-lTKXSBase",
+					"-lTKCAF",
+					"-lTKBO",
+					"-lTKPrim",
+					"-lTKLCAF",
+					"-lTKCDF",
+					"-lTKShHealing",
+					"-lTKTopAlgo",
+					"-lTKGeomAlgo",
+					"-lTKBRep",
+					"-lTKGeomBase",
+					"-lTKG3d",
+					"-lTKG2d",
+					"-lTKMath",
+					"-lTKernel",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.stepviewer.StepLook.StepImportService;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "$(PROJECT_DIR)/../Sources/StepImportBridge/StepMeshImporter.h";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		DF1DF8AB300EC3EF004B3F9A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				HOMEBREW_PREFIX = /opt/homebrew;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(OCCT_ROOT)/include/opencascade",
+				);
+				INFOPLIST_FILE = StepImportService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = StepImportService;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(OCCT_ROOT)/lib",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.0;
+				OCCT_ROOT = /opt/homebrew/opt/opencascade;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lTKDESTEP",
+					"-lTKXCAF",
+					"-lTKVCAF",
+					"-lTKV3d",
+					"-lTKMesh",
+					"-lTKService",
+					"-lTKHLR",
+					"-lTKDE",
+					"-lTKXSBase",
+					"-lTKCAF",
+					"-lTKBO",
+					"-lTKPrim",
+					"-lTKLCAF",
+					"-lTKCDF",
+					"-lTKShHealing",
+					"-lTKTopAlgo",
+					"-lTKGeomAlgo",
+					"-lTKBRep",
+					"-lTKGeomBase",
+					"-lTKG3d",
+					"-lTKG2d",
+					"-lTKMath",
+					"-lTKernel",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.stepviewer.StepLook.StepImportService;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "$(PROJECT_DIR)/../Sources/StepImportBridge/StepMeshImporter.h";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		DF1DF8B8300EC405004B3F9A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.stepviewer.StepLook.StepLookTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LookSTEP.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LookSTEP";
+			};
+			name = Debug;
+		};
+		DF1DF8B9300EC405004B3F9A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.stepviewer.StepLook.StepLookTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LookSTEP.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LookSTEP";
+			};
+			name = Release;
+		};
+		DF652A24300EC2DB00B01C8B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		DF652A25300EC2DB00B01C8B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		DF652A27300EC2DB00B01C8B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = StepLook/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = LookSTEP;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.stepviewer.StepLook;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		DF652A28300EC2DB00B01C8B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = StepLook/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = LookSTEP;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.stepviewer.StepLook;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		DF652A44300EC34D00B01C8B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = StepLookPreview/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "LookSTEP Preview";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.stepviewer.StepLook.StepLookPreview;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		DF652A45300EC34D00B01C8B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = StepLookPreview/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "LookSTEP Preview";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.stepviewer.StepLook.StepLookPreview;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		DF1DF897300EC3C8004B3F9A /* Build configuration list for PBXNativeTarget "StepLookThumbnail" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DF1DF894300EC3C8004B3F9A /* Debug */,
+				DF1DF895300EC3C8004B3F9A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DF1DF8A9300EC3EF004B3F9A /* Build configuration list for PBXNativeTarget "StepImportService" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DF1DF8AA300EC3EF004B3F9A /* Debug */,
+				DF1DF8AB300EC3EF004B3F9A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DF1DF8B7300EC405004B3F9A /* Build configuration list for PBXNativeTarget "StepLookTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DF1DF8B8300EC405004B3F9A /* Debug */,
+				DF1DF8B9300EC405004B3F9A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DF652A16300EC2D900B01C8B /* Build configuration list for PBXProject "StepLook" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DF652A24300EC2DB00B01C8B /* Debug */,
+				DF652A25300EC2DB00B01C8B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DF652A26300EC2DB00B01C8B /* Build configuration list for PBXNativeTarget "LookSTEP" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DF652A27300EC2DB00B01C8B /* Debug */,
+				DF652A28300EC2DB00B01C8B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DF652A47300EC34D00B01C8B /* Build configuration list for PBXNativeTarget "StepLookPreview" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DF652A44300EC34D00B01C8B /* Debug */,
+				DF652A45300EC34D00B01C8B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = DF652A13300EC2D900B01C8B /* Project object */;
+}
