@@ -10,12 +10,14 @@ import SwiftUI
 struct StepInteractiveView: NSViewRepresentable {
     let model: StepMeshData
     var fitRequest = 0
+    var requestElapsed: TimeInterval?
+    var loadSource: String?
     var onFailure: ((String) -> Void)?
 
     func makeNSView(context: Context) -> StepMetalView {
         let view = StepMetalView(frame: .zero, device: MTLCreateSystemDefaultDevice())
         view.onFailure = onFailure
-        view.load(model)
+        view.load(model, requestElapsed: requestElapsed, source: loadSource)
         return view
     }
 
@@ -69,7 +71,8 @@ final class StepMetalView: MTKView, MTKViewDelegate {
     private var isAutoFitted = true
     private var lastFrameTime = CACurrentMediaTime()
     private var didReportRenderFailure = false
-    private var rendererLoadStart = ProcessInfo.processInfo.systemUptime
+    private var rendererLoadStart = CACurrentMediaTime()
+    private var loadSource = "direct"
     private var didLogFirstFrame = false
 
     override init(frame frameRect: NSRect, device: (any MTLDevice)? = nil) {
@@ -112,9 +115,15 @@ final class StepMetalView: MTKView, MTKViewDelegate {
 
     deinit { loadTask?.cancel() }
 
-    func load(_ model: StepMeshData) {
+    func load(
+        _ model: StepMeshData,
+        requestElapsed: TimeInterval? = nil,
+        source: String? = nil
+    ) {
         loadTask?.cancel()
-        rendererLoadStart = ProcessInfo.processInfo.systemUptime
+        rendererLoadStart = CACurrentMediaTime() - max(0, requestElapsed ?? 0)
+        loadSource = source ?? "direct"
+        hasLoadedModel = false
         didLogFirstFrame = false
         loadTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -222,16 +231,29 @@ final class StepMetalView: MTKView, MTKViewDelegate {
             let now = CACurrentMediaTime()
             let delta = min(now - lastFrameTime, 1.0 / 15.0)
             lastFrameTime = now
+            let recordsFirstGeometryFrame = hasLoadedModel && !didLogFirstFrame
+            if recordsFirstGeometryFrame {
+                didLogFirstFrame = true
+                let loadStart = rendererLoadStart
+                let source = loadSource
+                let triangles = raycastModel?.triangleCount ?? 0
+                let definitions = raycastModel?.definitions.count ?? 0
+                let occurrences = raycastModel?.occurrences.count ?? 0
+                let missingFaces = raycastModel?.missingFaceCount ?? 0
+                drawable.addPresentedHandler { _ in
+                    let seconds = CACurrentMediaTime() - loadStart
+                    Task { @MainActor in
+                        Self.lifecycleLog.info(
+                            "first_geometry_frame source=\(source, privacy: .public) seconds=\(seconds, format: .fixed(precision: 3)) triangles=\(triangles) definitions=\(definitions) occurrences=\(occurrences) missing_faces=\(missingFaces)"
+                        )
+                    }
+                }
+            }
             try realityRenderer.updateAndRender(
                 deltaTime: delta,
                 cameraOutput: output,
                 whenScheduled: { _ in drawable.present() }
             )
-            if !didLogFirstFrame {
-                didLogFirstFrame = true
-                let seconds = ProcessInfo.processInfo.systemUptime - rendererLoadStart
-                Self.lifecycleLog.info("first_frame seconds=\(seconds, format: .fixed(precision: 3))")
-            }
         } catch {
             isPaused = true
             reportFailure("The 3D preview stopped rendering. Try opening the file again.")

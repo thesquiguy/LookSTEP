@@ -57,7 +57,11 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
                 Self.lifecycleLog.info(
                     "cache_hit seconds=\(cacheSeconds, format: .fixed(precision: 3)) triangles=\(cached.triangleCount) definitions=\(cached.definitions.count) occurrences=\(cached.occurrences.count) missing_faces=\(cached.missingFaceCount)"
                 )
-                show(.model(cached))
+                show(.model(
+                    cached,
+                    requestElapsed: ProcessInfo.processInfo.systemUptime - requestStart,
+                    loadSource: "cache"
+                ))
                 return
             }
             let lookupSeconds = ProcessInfo.processInfo.systemUptime - cacheStart
@@ -86,7 +90,11 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
             Self.lifecycleLog.info(
                 "preview_ready store_seconds=\(storeSeconds, format: .fixed(precision: 3)) request_seconds=\(totalSeconds, format: .fixed(precision: 3)) triangles=\(model.triangleCount) definitions=\(model.definitions.count) occurrences=\(model.occurrences.count) missing_faces=\(model.missingFaceCount)"
             )
-            show(.model(model))
+            show(.model(
+                model,
+                requestElapsed: ProcessInfo.processInfo.systemUptime - requestStart,
+                loadSource: "import"
+            ))
         } catch is CancellationError {
             let totalSeconds = ProcessInfo.processInfo.systemUptime - requestStart
             Self.lifecycleLog.info("preview_cancelled request_seconds=\(totalSeconds, format: .fixed(precision: 3))")
@@ -162,7 +170,7 @@ private struct PreviewImportBudget {
 private struct PreviewContent: View {
     enum State {
         case loading
-        case model(StepMeshData)
+        case model(StepMeshData, requestElapsed: TimeInterval, loadSource: String)
         case failure(String)
     }
 
@@ -179,8 +187,13 @@ private struct PreviewContent: View {
                     ProgressView().controlSize(.large)
                     Text("Preparing preview…").font(.system(size: 14, weight: .medium))
                 }
-            case .model(let model):
-                StepInteractiveView(model: model, fitRequest: fitRequest) { message in
+            case .model(let model, let requestElapsed, let loadSource):
+                StepInteractiveView(
+                    model: model,
+                    fitRequest: fitRequest,
+                    requestElapsed: requestElapsed,
+                    loadSource: loadSource
+                ) { message in
                     onRenderFailure(message)
                 }
                     .overlay(alignment: .topTrailing) {
