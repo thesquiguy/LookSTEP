@@ -1,7 +1,7 @@
 import AppKit
 import RealityKit
 
-enum StepColorSpace {
+nonisolated enum StepColorSpace {
     static func linearToSRGB(_ component: Float) -> Float {
         let value = min(1, max(0, component))
         if value <= 0.003_130_8 { return value * 12.92 }
@@ -9,66 +9,54 @@ enum StepColorSpace {
     }
 
     static func displayRGBA(fromLinear rgba: SIMD4<Float>) -> SIMD4<Float> {
-        SIMD4(
+        var display = SIMD4(
             linearToSRGB(rgba.x),
             linearToSRGB(rgba.y),
             linearToSRGB(rgba.z),
             min(1, max(0.15, rgba.w))
         )
+        // Preserve the source hue while lifting near-black CAD paint enough to
+        // retain form against a dark macOS viewport. The cached source color
+        // remains exact; this is a display-only accessibility adaptation.
+        let luminance = 0.2126 * display.x + 0.7152 * display.y + 0.0722 * display.z
+        let minimumLuminance: Float = 0.12
+        if luminance < minimumLuminance {
+            let lift = minimumLuminance - luminance
+            display.x = min(1, display.x + lift)
+            display.y = min(1, display.y + lift)
+            display.z = min(1, display.z + lift)
+        }
+        return display
     }
 }
 
-enum StepFallbackColorPolicy {
-    // Neutral gray for a single uncolored part and for gaps in partially colored files.
+nonisolated enum StepFallbackColorPolicy {
+    // D-018: missing source color never implies material or grouping semantics.
     static let neutralLinearRGBA = SIMD4<Float>(0.423_268, 0.456_411, 0.496_933, 1)
 
-    // A restrained CAD palette inspired by Onshape's deterministic eight-part rotation.
-    // The neutral leads so a single definition and the first assembly definition agree.
-    static let uncoloredPartPalette: [SIMD4<Float>] = [
-        neutralLinearRGBA,
-        SIMD4(0.254_152, 0.462_077, 0.623_960, 1),
-        SIMD4(0.068_478, 0.147_027, 0.439_657, 1),
-        SIMD4(0.651_406, 0.665_387, 0.686_685, 1),
-        SIMD4(0.473_531, 0.658_375, 0.760_525, 1),
-        SIMD4(0.887_923, 0.323_143, 0.020_289, 1),
-        SIMD4(0.194_618, 0.215_861, 0.234_551, 1),
-        SIMD4(0.723_055, 0.423_268, 0.014_444, 1),
-    ]
-
-    static func containsSourceColor(_ model: StepMeshData) -> Bool {
-        model.occurrences.contains { $0.color != nil }
-            || model.definitions.contains { definition in
-                definition.materialGroups.contains { $0.linearColor != nil }
-            }
-    }
-
-    static func baseLinearColor(
-        for occurrence: StepMeshOccurrence,
-        in model: StepMeshData,
-        containsSourceColor: Bool
-    ) -> SIMD4<Float> {
-        if let sourceColor = occurrence.color { return sourceColor }
-        guard !containsSourceColor, model.definitions.count > 1 else {
-            return neutralLinearRGBA
-        }
-        return uncoloredPartPalette[occurrence.definitionIndex % uncoloredPartPalette.count]
+    static func baseLinearColor(for occurrence: StepMeshOccurrence) -> SIMD4<Float> {
+        occurrence.color ?? neutralLinearRGBA
     }
 }
 
-struct StepMaterialLayout {
+nonisolated struct StepMaterialLayout: Sendable {
     let perFaceMaterialIndices: [UInt32]
     let explicitLinearColors: [SIMD4<Float>]
 
     static func make(
         for definition: StepMeshDefinition,
-        maximumMaterials: Int = 4_096
+        maximumMaterials: Int = 4_096,
+        isCancelled: () -> Bool = { false }
     ) throws -> StepMaterialLayout {
         var explicitColors: [SIMD4<Float>] = []
         var colorSlots: [LinearColorKey: UInt32] = [:]
         var perFace: [UInt32] = []
         perFace.reserveCapacity(definition.indices.count / 3)
 
-        for group in definition.materialGroups {
+        for (index, group) in definition.materialGroups.enumerated() {
+            if index.isMultiple(of: 4_096), isCancelled() {
+                throw CancellationError()
+            }
             let slot: UInt32
             if let color = group.linearColor {
                 let key = LinearColorKey(color)
@@ -98,12 +86,12 @@ struct StepMaterialLayout {
     }
 }
 
-enum StepMaterialLayoutError: Error {
+nonisolated enum StepMaterialLayoutError: Error {
     case invalidGroups
     case tooManyMaterials
 }
 
-private struct LinearColorKey: Hashable {
+nonisolated private struct LinearColorKey: Hashable, Sendable {
     let red: UInt32
     let green: UInt32
     let blue: UInt32

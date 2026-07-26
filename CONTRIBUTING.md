@@ -32,3 +32,12 @@ Record third-party provenance and license obligations before adding code, binary
 Submit only work you have the right to share. Contributions must be independently written from public documentation, properly licensed dependencies, and the behavior described in this repository.
 
 Never commit private CAD files, generated caches, signing material, machine-specific data, or personal contact details. Keep commits bounded and name them for the user-visible or architectural result.
+
+Before committing, run:
+
+```sh
+Scripts/verify_repository_hygiene.sh
+```
+
+The verifier inspects Git's tracked and non-ignored untracked files only. It
+does not enumerate ignored private fixtures or signing material.

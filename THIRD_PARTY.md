@@ -33,3 +33,12 @@ it does not vendor OCCT source in this repository.
 
 The exact license files supplied with the Homebrew packages used for the
 release are included in `ThirdPartyNotices`.
+
+## Release verification
+
+The dependency validator pins the installed OCCT, FreeType, libpng, and oneTBB
+versions to this register before packaging. The Release verifiers then compare
+every bundled notice and this register byte-for-byte
+with the repository copies, reject stale or additional notice files, require
+the dylib manifest to match the complete bundled `Frameworks` closure, and
+reject library names outside these registered dependency families.

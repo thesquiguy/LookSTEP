@@ -8,8 +8,8 @@ file and press Spacebar to inspect it.
 ## Features
 
 - Interactive Quick Look and Column View previews.
-- Reads STEP face and part colors. When a file has no color data, separate
-  parts receive distinct fallback colors.
+- Reads STEP face and part colors. Geometry without color data uses one neutral
+  light-gray fallback.
 - Adjusts tessellation by file size and part size to keep curved surfaces
   smooth without making previews unnecessarily heavy.
 - Orbit and zoom with your mouse, just like in CAD. Shift-drag to pan, or use
@@ -20,10 +20,45 @@ file and press Spacebar to inspect it.
 
 ## Install
 
-Requires an Apple Silicon Mac running macOS 15 or later, Xcode, and
-[Homebrew](https://brew.sh/).
+LookSTEP requires an Apple Silicon Mac running macOS 26 or later.
 
-1. [Download LookSTEP](https://github.com/thesquiguy/LookSTEP/archive/refs/heads/main.zip)
+LookSTEP is not yet notarized by Apple, because notarization requires a paid
+Apple Developer account. That does not affect how the app runs, but it does
+change how you get past macOS Gatekeeper. Pick whichever tradeoff you prefer.
+
+### Option 1: Download the app
+
+Fastest path. No Xcode, no Homebrew, no Open CASCADE install — the app carries
+its own copy of every library it needs.
+
+1. Download `LookSTEP-macos-arm64.zip` from the
+   [latest release](https://github.com/thesquiguy/LookSTEP/releases/latest)
+   and open it.
+2. Drag `LookSTEP.app` to your `Applications` folder.
+3. macOS will refuse to open it, because the app is not notarized. Open
+   Terminal and run this once to clear the download quarantine flag:
+
+   ```sh
+   xattr -dr com.apple.quarantine /Applications/LookSTEP.app
+   ```
+
+4. Open LookSTEP once so Finder registers its preview extension.
+
+Step 3 is the part worth understanding before you run it. macOS tags every
+downloaded file with a quarantine flag, and Gatekeeper refuses to launch
+quarantined apps that Apple has not notarized. That command removes the flag
+from LookSTEP only. It does not disable Gatekeeper, and it does not affect any
+other app. If you would rather not run it, use Option 2 instead — and if you
+would rather not take an unsigned binary from a stranger on the internet at
+all, that is a reasonable position, so use Option 2.
+
+### Option 2: Build it yourself
+
+Slower to set up, but nothing to bypass: an app you compile on your own Mac is
+never quarantined, so it opens with no warnings. Requires
+[Xcode](https://developer.apple.com/xcode/) and [Homebrew](https://brew.sh/).
+
+1. [Download the source](https://github.com/thesquiguy/LookSTEP/archive/refs/heads/main.zip)
    and open the ZIP file.
 2. Open Terminal and type `cd `, including the space. Drag the unzipped
    `LookSTEP-main` folder into the Terminal window, then press Return.
@@ -33,9 +68,13 @@ Requires an Apple Silicon Mac running macOS 15 or later, Xcode, and
    bash install.sh
    ```
 
-The installer builds LookSTEP and installs it in `/Applications`. To install it
-in your personal Applications folder instead, run `bash install.sh --user`.
-See [BUILDING.md](BUILDING.md) for manual installation and troubleshooting.
+The installer checks your setup, builds LookSTEP, verifies it, and installs it
+in `/Applications`. To install it in your personal Applications folder instead,
+run `bash install.sh --user`. See [BUILDING.md](BUILDING.md) for manual
+installation and troubleshooting.
+
+Xcode is a large download, and LookSTEP genuinely needs all of it: the Command
+Line Tools package alone does not include `xcodebuild`.
 
 ## Use
 
@@ -44,6 +83,8 @@ See [BUILDING.md](BUILDING.md) for manual installation and troubleshooting.
 1. Select a `.step` or `.stp` file in Finder.
 2. Press Spacebar, or use Finder's Column View preview.
 3. Left-drag to orbit, scroll or pinch to zoom, and Shift-left-drag to pan.
+4. Use **LookSTEP → Settings** to keep the preview background white—the
+   default—or let it follow your Mac’s Light or Dark appearance.
 
 LookSTEP's small app is a diagnostic viewer. Finder Quick Look is the main
 experience.
@@ -60,24 +101,23 @@ slow or fail to preview.
 
 ## Measured preview times
 
-Measured with OCCT 7.9.3 on an M1 MacBook Air with 8 GB of memory. Times run
-from Quick Look invoking LookSTEP's preview extension to the first presented
-geometry frame. Each uncached result uses a new file path; successful cached
-results reopen that same file.
+Measured with OCCT 7.9.3 on an M1 MacBook Air with 8 GB of memory, running
+macOS 26.4.1. Times run from Quick Look invoking LookSTEP's preview extension
+to the first Metal-presented geometry frame. Each uncached trial uses a new
+path and inode and must report an import; cached trials reopen the same path,
+restart the preview processes, and must not invoke the importer.
 
-| Anonymous model | Size | Definitions / instances | Triangles | Uncached | Cached | Median uncached peak RSS |
+| Anonymous model | Size | Definitions / instances | Triangles | Uncached median | Cached median | Preview / importer peak RSS |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Tiny single part | 0.22 MB | 1 / 1 | 9,316 | 0.55 s | 0.25 s | 180 MiB |
-| Small colored electronics | 0.40 MB | 1 / 1 | 894 | 0.42 s | 0.26 s | 189 MiB |
-| Medium instanced assembly | 6.9 MB | 33 / 93 | 419,736 | 7.18 s | 2.48 s | 284 MiB |
-| Large complex shell | 25.7 MB | 1 / 1 | 348,070 (1 face missing) | 12.53 s (0.1.1) | — | 731 MiB |
-| Large colored model | 35.5 MB | 1 / 1 | 145,250 (4 faces missing) | 11.36 s (0.1.1) | 0.34 s | 1,030 MiB |
-| Stress assembly | 61.8 MB | — | — | Timed out 3/3 at 15.31 s | — | 517 MiB |
+| Small nested assembly | 0.09 MB | 4 / 12 | 15,688 | 0.66 s | 0.13 s | 78 / 34 MiB |
+| Medium colored model | 35.5 MB | 1 / 1 | 54,966 (4 faces missing) | 5.45 s, simplified | 0.13 s | 95 / 1,080 MiB |
+| Large stress assembly | 61.8 MB | 147 / 261 | 252,541 (7 faces missing) | 11.30 s, simplified | 0.95 s | 129 / 652 MiB |
+| High-complexity large source | 174.8 MB | — | — | Actionable refusal in 1.16 s | — | — |
 
-The 0.1.0 time values are medians of three trials. The two 0.1.1 uncached
-entries are cool-system verification runs; rapid back-to-back imports can be
-slower on this fanless Mac. Peak RSS was measured with 0.1.0. File size alone
-does not predict STEP complexity.
+Values are medians of three trials. File size alone does not predict STEP
+complexity. LookSTEP deliberately simplifies expensive Finder previews and
+refuses a cold import predicted to exceed its bounded preview window; the
+source file is never modified.
 
 ## Contributing
 

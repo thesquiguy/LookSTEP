@@ -1,0 +1,42 @@
+{
+  "fill" : {
+    "automatic-gradient" : "extended-srgb:0.00000,0.53333,1.00000,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "03-cad-solid 3.png",
+          "name" : "03 CAD Solid"
+        },
+        {
+          "image-name" : "02-step.png",
+          "name" : "02 STEP"
+        },
+        {
+          "image-name" : "01-document 3.png",
+          "name" : "01 Document"
+        },
+        {
+          "image-name" : "LookSTEPBackground.png",
+          "name" : "00 Violet Background"
+        }
+      ],
+      "name" : "LookSTEP Artwork",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

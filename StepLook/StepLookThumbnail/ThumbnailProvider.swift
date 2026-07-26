@@ -1,34 +1,44 @@
 import AppKit
+import OSLog
 import QuickLookThumbnailing
 
 final class ThumbnailProvider: QLThumbnailProvider {
+    private static let lifecycleLog = Logger(
+        subsystem: "com.local.stepviewer.StepLook",
+        category: "ThumbnailLifecycle"
+    )
+
     override func provideThumbnail(
         for request: QLFileThumbnailRequest,
         _ handler: @escaping (QLThumbnailReply?, Error?) -> Void
     ) {
-        Task { @MainActor in
+        Task(priority: .userInitiated) {
+            let requestStart = ProcessInfo.processInfo.systemUptime
             let url = request.fileURL
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
             do {
-                let cache = StepPreviewCache(profileIdentifier: "thumbnail-v1-500000-0.0045")
-                let model: StepMeshData
-                if let cached = try cache.load(for: url) {
-                    model = cached
-                } else {
+                let budget = StepPreviewImportBudget(for: url)
+                let cache = StepPreviewCache(profileIdentifier: budget.cacheProfileIdentifier)
+                let loaded = try await cache.loadOrImport(for: url) {
+                    let preflight = try await budget.preflightColdImport(for: url)
                     let result = try await StepImportClient().importFile(
                         at: url,
-                        maxSeconds: 7,
-                        maxTriangles: 500_000,
-                        relativeDeflection: 0.0045
+                        maxSeconds: budget.seconds,
+                        maxTriangles: budget.maximumTriangles,
+                        relativeDeflection: budget.relativeDeflection,
+                        minimumDeflection: budget.minimumDeflection,
+                        maximumDeflection: budget.maximumDeflection,
+                        startingSimplificationLevel:
+                            preflight?.startingSimplificationLevel ?? 0
                     )
-                    model = try cache.store(result.archive, for: url)
+                    return result.archive
                 }
                 let pixels = CGSize(
                     width: request.maximumSize.width * request.scale,
                     height: request.maximumSize.height * request.scale
                 )
-                let image = try await StepThumbnailRenderer.render(model, pixelSize: pixels)
+                let image = try await StepThumbnailRenderer.render(loaded.model, pixelSize: pixels)
                 let reply = QLThumbnailReply(contextSize: request.maximumSize, drawing: { context in
                     context.setFillColor(CGColor(gray: 1, alpha: 1))
                     context.fill(CGRect(origin: .zero, size: request.maximumSize))
@@ -41,8 +51,15 @@ final class ThumbnailProvider: QLThumbnailProvider {
                     return true
                 })
                 reply.extensionBadge = "STEP"
+                Self.lifecycleLog.info(
+                    "thumbnail_ready source=\(loaded.source.rawValue, privacy: .public) seconds=\(ProcessInfo.processInfo.systemUptime - requestStart, format: .fixed(precision: 3)) triangles=\(loaded.model.triangleCount) definitions=\(loaded.model.definitions.count) occurrences=\(loaded.model.occurrences.count) missing_faces=\(loaded.model.missingFaceCount) pixel_width=\(Int(pixels.width)) pixel_height=\(Int(pixels.height))"
+                )
                 handler(reply, nil)
             } catch {
+                let nsError = error as NSError
+                Self.lifecycleLog.error(
+                    "thumbnail_fallback category=\(StepTelemetryFailureCategory.label(for: error), privacy: .public) seconds=\(ProcessInfo.processInfo.systemUptime - requestStart, format: .fixed(precision: 3)) domain=\(nsError.domain, privacy: .public) code=\(nsError.code)"
+                )
                 let reply = Self.fallbackReply(size: request.maximumSize)
                 reply.extensionBadge = "STEP"
                 handler(reply, nil)

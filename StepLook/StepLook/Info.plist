@@ -2,6 +2,21 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>StepLookCacheAppGroupIdentifier</key>
+	<string>$(STEPLOOK_APP_GROUP_IDENTIFIER)</string>
+	<key>StepLookCaliperBundleIdentifier</key>
+	<string>$(STEPLOOK_CALIPER_BUNDLE_IDENTIFIER)</string>
+	<!--
+	  STEP content-type matching.
+
+	  macOS declares no system type for STEP. Every CAD vendor exports its own,
+	  and LaunchServices resolves a given .step file to exactly one of them. The
+	  identifiers below are the ones LookSTEP recognises; provenance for each is
+	  recorded in QUICKLOOK_APP.md ("STEP content-type provenance").
+
+	  LSHandlerRank stays Alternate on purpose: LookSTEP is the Quick Look
+	  previewer, not the default opener.
+	-->
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -13,23 +28,39 @@
 			<string>Alternate</string>
 			<key>LSItemContentTypes</key>
 			<array>
-				<string>com.local.stepviewer.step</string>
+				<string>$(STEPLOOK_STEP_TYPE_IDENTIFIER)</string>
+				<!-- Verified locally: declared by Shapr3D.app. -->
 				<string>com.shapr3d.step</string>
 				<string>com.shapr3d.stp</string>
+				<!-- Inferred from vendor bundle-identifier convention; unverified. -->
+				<string>com.autodesk.fusion360.step</string>
+				<string>com.autodesk.fusion360.stp</string>
+				<string>com.mcneel.rhinoceros.step</string>
+				<string>com.mcneel.rhinoceros.stp</string>
+				<string>com.bricsys.bricscad.step</string>
+				<string>com.bricsys.bricscad.stp</string>
+				<string>com.luxion.keyshot.step</string>
+				<string>com.luxion.keyshot.stp</string>
 			</array>
 		</dict>
 	</array>
+	<!--
+	  LookSTEP's own type. This is what a .step file resolves to when no CAD
+	  application on the machine claims the extension, so it is the only
+	  declaration here that carries a filename-extension tag.
+	-->
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.data</string>
+				<string>public.3d-content</string>
 			</array>
 			<key>UTTypeDescription</key>
 			<string>STEP 3D Model</string>
 			<key>UTTypeIdentifier</key>
-			<string>com.local.stepviewer.step</string>
+			<string>$(STEPLOOK_STEP_TYPE_IDENTIFIER)</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -40,37 +71,133 @@
 			</dict>
 		</dict>
 	</array>
+	<!--
+	  Vendor types LookSTEP recognises but does not own.
+
+	  These deliberately carry NO UTTypeTagSpecification. Claiming .step here as
+	  well would let one of them beat the exported type above when the owning
+	  application is absent, which would put a foreign vendor name in Finder's
+	  Kind column for a file nothing else claims. Importing the identity alone
+	  is enough: when the vendor's application IS installed, its own exported
+	  declaration wins and supplies the tags.
+	-->
 	<key>UTImportedTypeDeclarations</key>
 	<array>
+		<!-- Verified locally: Shapr3D.app declares com.shapr3d.STEP / com.shapr3d.STP
+		     (UTI comparison is case-insensitive). -->
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.data</string>
+				<string>public.3d-content</string>
 			</array>
 			<key>UTTypeDescription</key>
 			<string>STEP 3D Model</string>
 			<key>UTTypeIdentifier</key>
 			<string>com.shapr3d.step</string>
-			<key>UTTypeTagSpecification</key>
-			<dict>
-				<key>public.filename-extension</key>
-				<string>step</string>
-			</dict>
 		</dict>
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.data</string>
+				<string>public.3d-content</string>
 			</array>
 			<key>UTTypeDescription</key>
 			<string>STEP 3D Model</string>
 			<key>UTTypeIdentifier</key>
 			<string>com.shapr3d.stp</string>
-			<key>UTTypeTagSpecification</key>
-			<dict>
-				<key>public.filename-extension</key>
-				<string>stp</string>
-			</dict>
+		</dict>
+		<!-- Inferred from each vendor's macOS bundle-identifier prefix. Unverified:
+		     no copy of these applications was available to inspect, and no vendor
+		     documentation publishes the identifier. An identifier that turns out to
+		     be wrong is inert. -->
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.3d-content</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>STEP 3D Model</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.autodesk.fusion360.step</string>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.3d-content</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>STEP 3D Model</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.autodesk.fusion360.stp</string>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.3d-content</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>STEP 3D Model</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.mcneel.rhinoceros.step</string>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.3d-content</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>STEP 3D Model</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.mcneel.rhinoceros.stp</string>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.3d-content</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>STEP 3D Model</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.bricsys.bricscad.step</string>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.3d-content</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>STEP 3D Model</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.bricsys.bricscad.stp</string>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.3d-content</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>STEP 3D Model</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.luxion.keyshot.step</string>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.3d-content</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>STEP 3D Model</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.luxion.keyshot.stp</string>
 		</dict>
 	</array>
 </dict>

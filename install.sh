@@ -73,6 +73,30 @@ verify_app() {
   [ -d "$app_path/Contents/XPCServices/StepImportService.xpc" ] || fail "LookSTEP.app is missing its isolated STEP importer."
   [ ! -e "$app_path/Contents/PlugIns/StepLookThumbnail.appex" ] || fail "LookSTEP.app unexpectedly contains the retired thumbnail extension."
   codesign --verify --deep --strict "$app_path" || fail "LookSTEP.app did not pass signature verification."
+  verify_step_importers_load "$app_path"
+}
+
+# The import services are the only executables that link Open CASCADE. If the
+# hardened runtime refuses to map those bundled libraries, the app still
+# installs, still launches, and still registers with Finder, but every preview
+# fails. That is invisible until someone presses Spacebar, so prove the
+# libraries load before installing rather than after.
+verify_step_importers_load() {
+  app_path=$1
+  for importer_path in \
+    "$app_path/Contents/XPCServices/StepImportService.xpc/Contents/MacOS/StepImportService" \
+    "$app_path/Contents/PlugIns/StepLookPreview.appex/Contents/XPCServices/StepImportService.xpc/Contents/MacOS/StepImportService"; do
+    [ -x "$importer_path" ] || fail "LookSTEP.app is missing an executable STEP import service."
+    # Launched directly, the service refuses to run and exits. Anything dyld
+    # cannot map is reported before that guard is ever reached.
+    importer_output=$("$importer_path" 2>&1 || true)
+    case "$importer_output" in
+      *"Library not loaded"*|*"code signature"*)
+        printf '%s\n' "$importer_output" >&2
+        fail "LookSTEP's STEP importer cannot load its bundled Open CASCADE libraries, so no preview would render."
+        ;;
+    esac
+  done
 }
 
 while [ "$#" -gt 0 ]; do
@@ -164,7 +188,7 @@ macos_major=${macos_version%%.*}
 case "$macos_major" in
   ''|*[!0-9]*) fail "could not determine the macOS version." ;;
 esac
-[ "$macos_major" -ge 15 ] || fail "LookSTEP requires macOS 15 or later; this Mac is running $macos_version."
+[ "$macos_major" -ge 26 ] || fail "LookSTEP requires macOS 26 or later; this Mac is running $macos_version."
 
 if ! xcodebuild -version >/dev/null 2>&1; then
   fail "Xcode is not ready. Open Xcode once, finish its setup, and run this installer again."
@@ -251,11 +275,42 @@ if [ "$open_after_install" -eq 1 ]; then
 fi
 
 preview_extension="$destination/Contents/PlugIns/StepLookPreview.appex"
+# Read the identifier from the installed bundle rather than hardcoding it. The
+# bundle prefix is a build setting (PRODUCT_BUNDLE_PREFIX) and changes when the
+# shipping identity is settled. If it cannot be read, fall through and register
+# unconditionally, which is the safe direction.
+preview_extension_identifier=$(
+  /usr/bin/plutil -extract CFBundleIdentifier raw -o - \
+    "$preview_extension/Contents/Info.plist" 2>/dev/null
+) || preview_extension_identifier=""
 if command -v pluginkit >/dev/null 2>&1; then
   pluginkit -r "$built_preview_extension" >/dev/null 2>&1 || true
-  if ! pluginkit -m -A -D -v -i com.local.stepviewer.StepLook.StepLookPreview 2>/dev/null | grep -Fq "$preview_extension"; then
-    pluginkit -a "$preview_extension" >/dev/null 2>&1 ||
-      printf 'Warning: Finder may need a moment to discover the LookSTEP preview extension.\n' >&2
+
+  # Xcode and other build tools can leave development copies registered after
+  # their temporary directories disappear. Finder is then free to select stale
+  # or Debug code instead of the installed Release extension. Remove every
+  # competing provider for this exact identifier before refreshing the one
+  # verified above.
+  if [ -n "$preview_extension_identifier" ]; then
+    pluginkit -m -A -D -v -i "$preview_extension_identifier" 2>/dev/null |
+      awk -F '\t' 'NF { print $NF }' |
+      while IFS= read -r discovered_preview_extension; do
+        case "$discovered_preview_extension" in
+          /*)
+            if [ "$discovered_preview_extension" != "$preview_extension" ]; then
+              pluginkit -r "$discovered_preview_extension" >/dev/null 2>&1 || true
+            fi
+            ;;
+        esac
+      done
+  fi
+
+  if ! pluginkit -a "$preview_extension" >/dev/null 2>&1; then
+    printf 'Warning: Finder may need a moment to discover the LookSTEP preview extension.\n' >&2
+  elif [ -n "$preview_extension_identifier" ] &&
+    ! pluginkit -m -A -D -v -i "$preview_extension_identifier" 2>/dev/null |
+      grep -Fq "$preview_extension"; then
+    printf 'Warning: Finder did not report the installed LookSTEP preview extension yet.\n' >&2
   fi
 fi
 

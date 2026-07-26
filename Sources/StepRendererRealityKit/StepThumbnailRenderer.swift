@@ -11,20 +11,30 @@ enum StepThumbnailRendererError: Error {
 
 @MainActor
 enum StepThumbnailRenderer {
+    private struct PreparedDefinition {
+        let resource: MeshResource
+        let explicitLinearColors: [SIMD4<Float>]
+    }
+
     static func render(_ model: StepMeshData, pixelSize: CGSize) async throws -> CGImage {
         let width = min(2048, max(64, Int(pixelSize.width.rounded(.up))))
         let height = min(2048, max(64, Int(pixelSize.height.rounded(.up))))
         guard let device = MTLCreateSystemDefaultDevice() else { throw StepThumbnailRendererError.noMetalDevice }
 
         let root = Entity()
-        var resources: [MeshResource] = []
+        var resources: [PreparedDefinition] = []
         resources.reserveCapacity(model.definitions.count)
         for (index, definition) in model.definitions.enumerated() {
+            let materialLayout = try StepMaterialLayout.make(for: definition)
             var descriptor = MeshDescriptor(name: "thumbnail-definition-\(index)")
             descriptor.positions = MeshBuffers.Positions(definition.positions)
             descriptor.normals = MeshBuffers.Normals(definition.normals)
             descriptor.primitives = .triangles(definition.indices)
-            resources.append(try await MeshResource(from: [descriptor]))
+            descriptor.materials = .perFace(materialLayout.perFaceMaterialIndices)
+            resources.append(PreparedDefinition(
+                resource: try await MeshResource(from: [descriptor]),
+                explicitLinearColors: materialLayout.explicitLinearColors
+            ))
         }
         let diagonal = max(model.diagonal, 1.0e-6)
         let inverseDiagonal = 1 / diagonal
@@ -34,15 +44,17 @@ enum StepThumbnailRenderer {
         normalization.columns.2.z = inverseDiagonal
         normalization.columns.3 = SIMD4(-model.center * inverseDiagonal, 1)
         for occurrence in model.occurrences {
-            let rgba = occurrence.color ?? SIMD4<Float>(0.70, 0.72, 0.75, 1)
-            var material = SimpleMaterial(
-                color: NSColor(calibratedRed: CGFloat(rgba.x), green: CGFloat(rgba.y),
-                               blue: CGFloat(rgba.z), alpha: CGFloat(max(0.15, rgba.w))),
-                roughness: 0.72,
-                isMetallic: false
-            )
-            material.faceCulling = .none
-            let entity = ModelEntity(mesh: resources[occurrence.definitionIndex], materials: [material])
+            let prepared = resources[occurrence.definitionIndex]
+            var materials = [StepCADAppearance.material(
+                linearRGBA: StepFallbackColorPolicy.baseLinearColor(for: occurrence)
+            )]
+            materials.append(contentsOf: prepared.explicitLinearColors.map {
+                StepCADAppearance.material(linearRGBA: $0)
+            })
+            guard prepared.resource.expectedMaterialCount == materials.count else {
+                throw StepMaterialLayoutError.invalidGroups
+            }
+            let entity = ModelEntity(mesh: prepared.resource, materials: materials)
             entity.transform.matrix = normalization * occurrence.transform
             root.addChild(entity)
         }

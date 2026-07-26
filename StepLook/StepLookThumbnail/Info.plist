@@ -2,15 +2,32 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>StepLookCacheAppGroupIdentifier</key>
+	<string>$(STEPLOOK_APP_GROUP_IDENTIFIER)</string>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionAttributes</key>
 		<dict>
+			<!--
+			  Kept identical to StepLookPreview/Info.plist on purpose: a file
+			  Quick Look can preview must also be one Finder can thumbnail.
+			  Provenance is recorded in QUICKLOOK_APP.md.
+			-->
 			<key>QLSupportedContentTypes</key>
 			<array>
-				<string>com.local.stepviewer.step</string>
+				<string>$(STEPLOOK_STEP_TYPE_IDENTIFIER)</string>
+				<!-- Verified locally: declared by Shapr3D.app. -->
 				<string>com.shapr3d.step</string>
 				<string>com.shapr3d.stp</string>
+				<!-- Inferred from vendor bundle-identifier convention; unverified. -->
+				<string>com.autodesk.fusion360.step</string>
+				<string>com.autodesk.fusion360.stp</string>
+				<string>com.mcneel.rhinoceros.step</string>
+				<string>com.mcneel.rhinoceros.stp</string>
+				<string>com.bricsys.bricscad.step</string>
+				<string>com.bricsys.bricscad.stp</string>
+				<string>com.luxion.keyshot.step</string>
+				<string>com.luxion.keyshot.stp</string>
 			</array>
 			<key>QLThumbnailMinimumDimension</key>
 			<integer>0</integer>

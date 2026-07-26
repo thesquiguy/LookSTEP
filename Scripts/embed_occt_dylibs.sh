@@ -1,19 +1,26 @@
 #!/bin/sh
 
-# Bundle the complete non-system dynamic-library closure rooted at the OCCT
-# libraries linked by StepImportService. Xcode runs this after linking the XPC
-# executable and before signing the XPC bundle.
+# Bundle the complete non-system dynamic-library closure rooted at an OCCT
+# executable. Xcode and CMake run this after linking and before sealing the
+# containing bundle.
 
 set -eu
 
+bundle_log_prefix=${BUNDLE_LOG_PREFIX:-LookSTEP OCCT bundling}
+bundle_manifest_name=${BUNDLE_MANIFEST_NAME:-.steplook-bundled-dylibs}
+
 fail() {
-    printf 'error: LookSTEP OCCT bundling: %s\n' "$*" >&2
+    printf 'error: %s: %s\n' "$bundle_log_prefix" "$*" >&2
     exit 1
 }
 
 note() {
-    printf 'LookSTEP OCCT bundling: %s\n' "$*"
+    printf '%s: %s\n' "$bundle_log_prefix" "$*"
 }
+
+case "$bundle_manifest_name" in
+    ''|*/*|.|..) fail "BUNDLE_MANIFEST_NAME must be a safe file name" ;;
+esac
 
 command -v otool >/dev/null 2>&1 || fail "otool is unavailable. Install the Xcode command-line tools."
 command -v install_name_tool >/dev/null 2>&1 || fail "install_name_tool is unavailable. Install the Xcode command-line tools."
@@ -28,7 +35,7 @@ occt_lib_dir="$occt_root/lib"
 service_binary="$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
 frameworks_dir="$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Frameworks"
 resources_dir="$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources"
-manifest_path="$resources_dir/.steplook-bundled-dylibs"
+manifest_path="$resources_dir/$bundle_manifest_name"
 bundle_rpath='@executable_path/../Frameworks'
 script_dir=$(cd "$(/usr/bin/dirname "$0")" && /bin/pwd -P) || fail "could not locate the Scripts directory"
 repository_root=$(/usr/bin/dirname "$script_dir")
@@ -212,6 +219,13 @@ while IFS= read -r source_path; do
     library_name=$(/usr/bin/basename "$source_path")
     /bin/cp -pL "$source_path" "$stage_dir/$library_name" || fail "could not copy $source_path"
     /bin/chmod u+w "$stage_dir/$library_name"
+    # Homebrew bottles may be pre-signed. Remove that signature before
+    # install_name_tool edits so the build does not emit a warning for every
+    # intentional Mach-O rewrite; the finalized copy is signed below.
+    if /usr/bin/codesign --display "$stage_dir/$library_name" >/dev/null 2>&1; then
+        /usr/bin/codesign --remove-signature "$stage_dir/$library_name" \
+            || fail "could not remove the source signature from $library_name"
+    fi
     printf '%s\n' "$library_name" >> "$new_manifest"
 done < "$queue_path"
 
@@ -292,9 +306,10 @@ while IFS= read -r source_path; do
 done < "$queue_path"
 
 /bin/mkdir -p "$frameworks_dir" "$resources_dir"
-# Remove the manifest location used by early local builds. Frameworks may
-# contain only code because Xcode validates every item there as signable code.
-/bin/rm -f "$frameworks_dir/.steplook-bundled-dylibs"
+# Frameworks may contain only code because Xcode validates every item there as
+# signable code. Also remove the original LookSTEP-era location when a caller
+# uses a product-specific manifest name.
+/bin/rm -f "$frameworks_dir/.steplook-bundled-dylibs" "$frameworks_dir/$bundle_manifest_name"
 if [ -f "$manifest_path" ]; then
     while IFS= read -r old_library_name; do
         case "$old_library_name" in

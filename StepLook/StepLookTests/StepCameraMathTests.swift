@@ -8,6 +8,8 @@ struct StepCameraMathTests {
         #expect(abs(StepColorSpace.linearToSRGB(0.003_130_8) - 0.04045) < 0.0001)
         #expect(abs(StepColorSpace.linearToSRGB(0.5) - 0.735_357) < 0.0001)
         #expect(abs(StepColorSpace.linearToSRGB(1) - 1) < 0.0001)
+        let dark = StepColorSpace.displayRGBA(fromLinear: SIMD4(0, 0, 0, 1))
+        #expect(dark.x >= 0.12 && dark.y >= 0.12 && dark.z >= 0.12)
     }
 
     @Test func materialLayoutUsesOccurrenceFallbackAndDeduplicatesFaceColors() throws {
@@ -30,37 +32,13 @@ struct StepCameraMathTests {
         #expect(layout.explicitLinearColors == [blue])
     }
 
-    @Test func uncoloredPartPaletteDoesNotCompeteWithSourceColors() {
-        let definition = StepMeshDefinition(
-            positions: [SIMD3(0, 0, 0), SIMD3(1, 0, 0), SIMD3(0, 1, 0)],
-            normals: [SIMD3(0, 0, 1), SIMD3(0, 0, 1), SIMD3(0, 0, 1)],
-            indices: [0, 1, 2],
-            materialGroups: [StepMeshMaterialGroup(indexOffset: 0, indexCount: 3, linearColor: nil)],
-            boundsMin: SIMD3(0, 0, 0),
-            boundsMax: SIMD3(1, 1, 0)
-        )
+    @Test func uncoloredOccurrencesAlwaysUseTheNeutralFallback() {
         let first = StepMeshOccurrence(definitionIndex: 0, transform: matrix_identity_float4x4, color: nil)
         let second = StepMeshOccurrence(definitionIndex: 1, transform: matrix_identity_float4x4, color: nil)
-        let uncolored = StepMeshData(
-            colorEncoding: .linearSRGB,
-            definitions: [definition, definition],
-            occurrences: [first, second],
-            boundsMin: .zero,
-            boundsMax: SIMD3(1, 1, 0),
-            triangleCount: 2,
-            faceCount: 2,
-            missingFaceCount: 0,
-            parseSeconds: 0,
-            meshSeconds: 0
-        )
-
-        #expect(!StepFallbackColorPolicy.containsSourceColor(uncolored))
-        #expect(StepFallbackColorPolicy.baseLinearColor(
-            for: first, in: uncolored, containsSourceColor: false
-        ) == StepFallbackColorPolicy.neutralLinearRGBA)
-        #expect(StepFallbackColorPolicy.baseLinearColor(
-            for: second, in: uncolored, containsSourceColor: false
-        ) == StepFallbackColorPolicy.uncoloredPartPalette[1])
+        #expect(StepFallbackColorPolicy.baseLinearColor(for: first)
+            == StepFallbackColorPolicy.neutralLinearRGBA)
+        #expect(StepFallbackColorPolicy.baseLinearColor(for: second)
+            == StepFallbackColorPolicy.neutralLinearRGBA)
 
         let sourceBlue = SIMD4<Float>(0.1, 0.2, 0.8, 1)
         let coloredOccurrence = StepMeshOccurrence(
@@ -68,26 +46,9 @@ struct StepCameraMathTests {
             transform: matrix_identity_float4x4,
             color: sourceBlue
         )
-        let partlyColored = StepMeshData(
-            colorEncoding: .linearSRGB,
-            definitions: [definition, definition],
-            occurrences: [coloredOccurrence, second],
-            boundsMin: .zero,
-            boundsMax: SIMD3(1, 1, 0),
-            triangleCount: 2,
-            faceCount: 2,
-            missingFaceCount: 0,
-            parseSeconds: 0,
-            meshSeconds: 0
-        )
-
-        #expect(StepFallbackColorPolicy.containsSourceColor(partlyColored))
-        #expect(StepFallbackColorPolicy.baseLinearColor(
-            for: coloredOccurrence, in: partlyColored, containsSourceColor: true
-        ) == sourceBlue)
-        #expect(StepFallbackColorPolicy.baseLinearColor(
-            for: second, in: partlyColored, containsSourceColor: true
-        ) == StepFallbackColorPolicy.neutralLinearRGBA)
+        #expect(StepFallbackColorPolicy.baseLinearColor(for: coloredOccurrence) == sourceBlue)
+        #expect(StepFallbackColorPolicy.baseLinearColor(for: second)
+            == StepFallbackColorPolicy.neutralLinearRGBA)
     }
 
     @Test func basisIsOrthonormal() {
@@ -180,5 +141,66 @@ struct StepCameraMathTests {
         )
 
         #expect(simd_distance(center, SIMD3(-0.1, 0.05, 0)) < 0.0001)
+    }
+
+    @Test func orbitPivotUsesTheVisibleTriangleUnderAnOffCenterClick() throws {
+        let definition = StepMeshDefinition(
+            positions: [
+                SIMD3(-1, -1, 0),
+                SIMD3(1, -1, 0),
+                SIMD3(0, 1, 0),
+            ],
+            normals: [
+                SIMD3(0, 0, 1),
+                SIMD3(0, 0, 1),
+                SIMD3(0, 0, 1),
+            ],
+            indices: [0, 1, 2],
+            materialGroups: [
+                StepMeshMaterialGroup(
+                    indexOffset: 0,
+                    indexCount: 3,
+                    linearColor: nil
+                ),
+            ],
+            boundsMin: SIMD3(-1, -1, 0),
+            boundsMax: SIMD3(1, 1, 0)
+        )
+        let model = StepMeshData(
+            colorEncoding: .linearSRGB,
+            definitions: [definition],
+            occurrences: [
+                StepMeshOccurrence(
+                    definitionIndex: 0,
+                    transform: matrix_identity_float4x4,
+                    color: nil
+                ),
+            ],
+            hierarchy: [],
+            boundsMin: definition.boundsMin,
+            boundsMax: definition.boundsMax,
+            triangleCount: 1,
+            faceCount: 1,
+            missingFaceCount: 0,
+            parseSeconds: 0,
+            meshSeconds: 0,
+            unitScaleToMeters: 1,
+            hasExplicitLengthUnit: true
+        )
+
+        let hit = try #require(StepCameraMath.nearestModelIntersection(
+            model: model,
+            normalization: matrix_identity_float4x4,
+            origin: SIMD3(0.35, 0.1, 2),
+            direction: SIMD3(0, 0, -1)
+        ))
+
+        #expect(simd_distance(hit, SIMD3(0.35, 0.1, 0)) < 0.0001)
+        #expect(StepCameraMath.nearestModelIntersection(
+            model: model,
+            normalization: matrix_identity_float4x4,
+            origin: SIMD3(2, 2, 2),
+            direction: SIMD3(0, 0, -1)
+        ) == nil)
     }
 }

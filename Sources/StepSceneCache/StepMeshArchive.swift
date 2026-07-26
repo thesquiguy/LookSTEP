@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 import simd
 
@@ -7,6 +6,7 @@ nonisolated enum StepMeshArchiveError: LocalizedError {
     case unsupportedVersion(UInt32)
     case unsupportedColorEncoding(UInt32)
     case invalidCounts
+    case declaredPayloadExceedsArchive
     case truncated
     case invalidIndex
 
@@ -15,7 +15,8 @@ nonisolated enum StepMeshArchiveError: LocalizedError {
         case .invalidHeader: "The cached preview is not a LookSTEP mesh."
         case .unsupportedVersion, .unsupportedColorEncoding:
             "The cached preview was created by an incompatible version of LookSTEP."
-        case .invalidCounts, .truncated, .invalidIndex: "The cached preview is damaged and will be rebuilt."
+        case .invalidCounts, .declaredPayloadExceedsArchive, .truncated, .invalidIndex:
+            "The cached preview is damaged and will be rebuilt."
         }
     }
 }
@@ -40,24 +41,69 @@ nonisolated struct StepMeshMaterialGroup: Sendable {
 }
 
 nonisolated struct StepMeshDefinition: Sendable {
+    let stableID: String
+    let name: String?
     let positions: [SIMD3<Float>]
     let normals: [SIMD3<Float>]
     let indices: [UInt32]
     let materialGroups: [StepMeshMaterialGroup]
     let boundsMin: SIMD3<Float>
     let boundsMax: SIMD3<Float>
+
+    init(
+        positions: [SIMD3<Float>],
+        normals: [SIMD3<Float>],
+        indices: [UInt32],
+        materialGroups: [StepMeshMaterialGroup],
+        boundsMin: SIMD3<Float>,
+        boundsMax: SIMD3<Float>,
+        stableID: String = "",
+        name: String? = nil
+    ) {
+        self.stableID = stableID
+        self.name = name
+        self.positions = positions
+        self.normals = normals
+        self.indices = indices
+        self.materialGroups = materialGroups
+        self.boundsMin = boundsMin
+        self.boundsMax = boundsMax
+    }
 }
 
 nonisolated struct StepMeshOccurrence: Sendable {
+    let nodeIndex: Int
     let definitionIndex: Int
     let transform: simd_float4x4
     let color: SIMD4<Float>?
+
+    init(
+        definitionIndex: Int,
+        transform: simd_float4x4,
+        color: SIMD4<Float>?,
+        nodeIndex: Int = 0
+    ) {
+        self.nodeIndex = nodeIndex
+        self.definitionIndex = definitionIndex
+        self.transform = transform
+        self.color = color
+    }
+}
+
+nonisolated struct StepMeshHierarchyNode: Sendable {
+    let stableID: String
+    let name: String?
+    let parentIndex: Int?
+    let definitionIndex: Int?
+    let isAssembly: Bool
+    let localTransform: simd_float4x4
 }
 
 nonisolated struct StepMeshData: Sendable {
     let colorEncoding: StepColorEncoding
     let definitions: [StepMeshDefinition]
     let occurrences: [StepMeshOccurrence]
+    let hierarchy: [StepMeshHierarchyNode]
     let boundsMin: SIMD3<Float>
     let boundsMax: SIMD3<Float>
     let triangleCount: Int
@@ -65,24 +111,99 @@ nonisolated struct StepMeshData: Sendable {
     let missingFaceCount: Int
     let parseSeconds: Double
     let meshSeconds: Double
+    let unitScaleToMeters: Double
+    let hasExplicitLengthUnit: Bool
+    /// The importer had to coarsen tessellation to fit the preview budget, so
+    /// this geometry is deliberately less accurate than the source.
+    var isSimplified: Bool = false
 
     var center: SIMD3<Float> { (boundsMin + boundsMax) * 0.5 }
     var diagonal: Float { simd_length(boundsMax - boundsMin) }
     var isIncomplete: Bool { missingFaceCount > 0 }
+    var incompleteGeometryNotice: StepIncompleteGeometryNotice? {
+        StepIncompleteGeometryNotice(missingFaceCount: missingFaceCount)
+    }
+    func simplifiedPreviewNotice(
+        caliperInstalled: Bool = false
+    ) -> StepSimplifiedPreviewNotice? {
+        isSimplified
+            ? StepSimplifiedPreviewNotice(caliperInstalled: caliperInstalled)
+            : nil
+    }
+}
+
+/// The persistent marker on a preview whose mesh was coarsened to fit the
+/// budget. It stays visible for the life of the preview: a reduced-quality mesh
+/// must never be mistaken for exact geometry.
+nonisolated struct StepSimplifiedPreviewNotice: Equatable, Sendable {
+    static let base = "This model was too detailed for a Finder preview, so it was reduced."
+
+    let summary = "Simplified preview"
+    let detail: String
+    let offersCaliper: Bool
+
+    /// `caliperInstalled` decides whether the badge may point at Caliper; the
+    /// badge is otherwise identical, so an uninstalled Caliper simply removes
+    /// the suggestion instead of leaving a dead end.
+    init(caliperInstalled: Bool = false) {
+        let advice = StepPreviewAdvice.make(
+            base: Self.base,
+            caliperClause: "Open it in Caliper for exact geometry.",
+            fallbackClause: nil,
+            caliperInstalled: caliperInstalled
+        )
+        detail = advice.message
+        offersCaliper = advice.offersCaliper
+    }
+
+    var accessibilityLabel: String { "\(summary). \(detail)" }
+}
+
+nonisolated struct StepIncompleteGeometryNotice: Equatable, Sendable {
+    let summary: String
+    let detail: String
+    let accessibilityLabel: String
+
+    init?(missingFaceCount: Int) {
+        guard missingFaceCount > 0 else { return nil }
+        summary = missingFaceCount == 1
+            ? "1 face couldn’t be shown"
+            : "\(missingFaceCount.formatted()) faces couldn’t be shown"
+        detail = "This preview is incomplete because some source faces did not produce geometry."
+        accessibilityLabel = "\(summary). \(detail)"
+    }
 }
 
 nonisolated enum StepMeshArchive {
-    static let version: UInt32 = 3
-    static let importerCompatibility = "step-importer-v7-preview-healing-occt-7.9.3"
-    private static let headerSize = 76
+    static let version: UInt32 = 4
+    // v9 adds the simplified-tessellation header flag. Bumping this parts new
+    // entries from old ones in the cache, so a build that predates the flag
+    // never has to decode an archive it would reject.
+    static let importerCompatibility = "step-importer-v9-graceful-degradation-bounded-occt-7.9.3"
+
+    /// Header flag bits, mirroring the writer in `StepMeshImporter.mm`.
+    enum Flag {
+        static let incompleteGeometry: UInt32 = 1
+        static let explicitLengthUnit: UInt32 = 2
+        /// The mesh was retried at a coarser tessellation to fit the budget.
+        static let simplified: UInt32 = 4
+        static let all: UInt32 = incompleteGeometry | explicitLengthUnit | simplified
+    }
+
+    private static let headerSize = 88
     private static let maximumDefinitions = 20_000
     private static let maximumOccurrences = 200_000
+    private static let maximumHierarchyNodes = 250_000
+    private static let maximumMetadataStringBytes = 64 * 1_024
     private static let maximumVerticesPerDefinition = 4_500_000
     private static let maximumIndicesPerDefinition = 5_000_000
     private static let maximumMaterialGroupsPerDefinition = 1_666_666
     private static let maximumTotalVertices = 5_000_000
     private static let maximumTotalIndices = 5_000_000
     private static let maximumTotalMaterialGroups = 1_666_666
+    private static let minimumDefinitionRecordBytes = MemoryLayout<UInt32>.size * 11
+    private static let occurrenceRecordBytes = MemoryLayout<UInt32>.size * 19
+    private static let minimumHierarchyRecordBytes = MemoryLayout<UInt32>.size * 17
 
     static func decode(_ data: Data) throws -> StepMeshData {
         guard data.count >= headerSize else { throw StepMeshArchiveError.truncated }
@@ -91,9 +212,11 @@ nonisolated enum StepMeshArchive {
         var reader = ArchiveReader(data: data, offset: 4)
         let archiveVersion = try reader.readUInt32()
         guard archiveVersion == version else { throw StepMeshArchiveError.unsupportedVersion(archiveVersion) }
-        _ = try reader.readUInt32() // flags; diagnostics are represented by explicit counts below
+        let flags = try reader.readUInt32()
+        guard flags & ~Flag.all == 0 else { throw StepMeshArchiveError.invalidCounts }
         let definitionCount = Int(try reader.readUInt32())
         let occurrenceCount = Int(try reader.readUInt32())
+        let hierarchyNodeCount = Int(try reader.readUInt32())
         let triangleCount = Int(try reader.readUInt32())
         let faceCount = Int(try reader.readUInt32())
         let missingFaceCount = Int(try reader.readUInt32())
@@ -103,6 +226,7 @@ nonisolated enum StepMeshArchive {
         }
         guard (1...maximumDefinitions).contains(definitionCount),
               (1...maximumOccurrences).contains(occurrenceCount),
+              (occurrenceCount...maximumHierarchyNodes).contains(hierarchyNodeCount),
               triangleCount > 0, faceCount > 0, missingFaceCount <= faceCount else {
             throw StepMeshArchiveError.invalidCounts
         }
@@ -111,19 +235,30 @@ nonisolated enum StepMeshArchive {
         let boundsMax = try reader.readVector3()
         let parseSeconds = try reader.readDouble()
         let meshSeconds = try reader.readDouble()
+        let unitScaleToMeters = try reader.readDouble()
         guard boundsMin.allFinite, boundsMax.allFinite,
               boundsMax.x >= boundsMin.x, boundsMax.y >= boundsMin.y, boundsMax.z >= boundsMin.z,
               parseSeconds.isFinite, parseSeconds >= 0,
-              meshSeconds.isFinite, meshSeconds >= 0 else {
+              meshSeconds.isFinite, meshSeconds >= 0,
+              unitScaleToMeters.isFinite, unitScaleToMeters > 0 else {
             throw StepMeshArchiveError.invalidCounts
         }
 
+        try reader.requireRemaining([
+            (count: definitionCount, stride: minimumDefinitionRecordBytes),
+        ])
         var definitions: [StepMeshDefinition] = []
         definitions.reserveCapacity(definitionCount)
         var totalVertices = 0
         var totalIndices = 0
         var totalMaterialGroups = 0
+        var definitionStableIDs: Set<String> = []
         for _ in 0..<definitionCount {
+            let stableID = try reader.readString(maximumBytes: maximumMetadataStringBytes)
+            let name = try reader.readString(maximumBytes: maximumMetadataStringBytes)
+            guard !stableID.isEmpty, definitionStableIDs.insert(stableID).inserted else {
+                throw StepMeshArchiveError.invalidCounts
+            }
             let vertexCount = Int(try reader.readUInt32())
             let indexCount = Int(try reader.readUInt32())
             let materialGroupCount = Int(try reader.readUInt32())
@@ -149,6 +284,12 @@ nonisolated enum StepMeshArchive {
                   definitionMax.z >= definitionMin.z else {
                 throw StepMeshArchiveError.invalidCounts
             }
+            let scalarBytes = MemoryLayout<UInt32>.size
+            try reader.requireRemaining([
+                (count: vertexCount, stride: scalarBytes * 6),
+                (count: indexCount, stride: scalarBytes),
+                (count: materialGroupCount, stride: scalarBytes * 7),
+            ])
             var positions: [SIMD3<Float>] = []
             var normals: [SIMD3<Float>] = []
             positions.reserveCapacity(vertexCount)
@@ -191,18 +332,28 @@ nonisolated enum StepMeshArchive {
             definitions.append(StepMeshDefinition(
                 positions: positions, normals: normals, indices: indices,
                 materialGroups: materialGroups,
-                boundsMin: definitionMin, boundsMax: definitionMax
+                boundsMin: definitionMin, boundsMax: definitionMax,
+                stableID: stableID, name: name.isEmpty ? nil : name
             ))
         }
 
+        try reader.requireRemaining([
+            (count: occurrenceCount, stride: occurrenceRecordBytes),
+        ])
         var occurrences: [StepMeshOccurrence] = []
         occurrences.reserveCapacity(occurrenceCount)
         var displayedTriangleCount: UInt64 = 0
+        var occurrenceNodeIndices: Set<Int> = []
         for _ in 0..<occurrenceCount {
+            let nodeIndex = Int(try reader.readUInt32())
             let definitionIndex = Int(try reader.readUInt32())
             let hasColorValue = try reader.readUInt32()
             guard hasColorValue <= 1 else { throw StepMeshArchiveError.invalidCounts }
             guard definitions.indices.contains(definitionIndex) else { throw StepMeshArchiveError.invalidIndex }
+            guard (0..<hierarchyNodeCount).contains(nodeIndex),
+                  occurrenceNodeIndices.insert(nodeIndex).inserted else {
+                throw StepMeshArchiveError.invalidIndex
+            }
             let row0 = SIMD4<Float>(try reader.readFloat(), try reader.readFloat(), try reader.readFloat(), try reader.readFloat())
             let row1 = SIMD4<Float>(try reader.readFloat(), try reader.readFloat(), try reader.readFloat(), try reader.readFloat())
             let row2 = SIMD4<Float>(try reader.readFloat(), try reader.readFloat(), try reader.readFloat(), try reader.readFloat())
@@ -217,11 +368,73 @@ nonisolated enum StepMeshArchive {
             occurrences.append(StepMeshOccurrence(
                 definitionIndex: definitionIndex,
                 transform: transform,
-                color: hasColorValue == 1 ? rgba : nil
+                color: hasColorValue == 1 ? rgba : nil,
+                nodeIndex: nodeIndex
             ))
             displayedTriangleCount += UInt64(definitions[definitionIndex].indices.count / 3)
             guard displayedTriangleCount <= UInt64(UInt32.max) else {
                 throw StepMeshArchiveError.invalidCounts
+            }
+        }
+
+        try reader.requireRemaining([
+            (count: hierarchyNodeCount, stride: minimumHierarchyRecordBytes),
+        ])
+        var hierarchy: [StepMeshHierarchyNode] = []
+        hierarchy.reserveCapacity(hierarchyNodeCount)
+        var hierarchyStableIDs: Set<String> = []
+        var rootCount = 0
+        for nodeIndex in 0..<hierarchyNodeCount {
+            let stableID = try reader.readString(maximumBytes: maximumMetadataStringBytes)
+            let name = try reader.readString(maximumBytes: maximumMetadataStringBytes)
+            let rawParentIndex = try reader.readUInt32()
+            let rawDefinitionIndex = try reader.readUInt32()
+            let isAssemblyValue = try reader.readUInt32()
+            guard !stableID.isEmpty, hierarchyStableIDs.insert(stableID).inserted,
+                  isAssemblyValue <= 1 else {
+                throw StepMeshArchiveError.invalidCounts
+            }
+            let parentIndex: Int?
+            if rawParentIndex == UInt32.max {
+                parentIndex = nil
+                rootCount += 1
+            } else {
+                parentIndex = Int(rawParentIndex)
+                guard parentIndex! < nodeIndex else { throw StepMeshArchiveError.invalidIndex }
+            }
+            let definitionIndex: Int?
+            if rawDefinitionIndex == UInt32.max {
+                definitionIndex = nil
+            } else {
+                definitionIndex = Int(rawDefinitionIndex)
+                guard definitions.indices.contains(definitionIndex!) else {
+                    throw StepMeshArchiveError.invalidIndex
+                }
+            }
+            let row0 = SIMD4<Float>(try reader.readFloat(), try reader.readFloat(), try reader.readFloat(), try reader.readFloat())
+            let row1 = SIMD4<Float>(try reader.readFloat(), try reader.readFloat(), try reader.readFloat(), try reader.readFloat())
+            let row2 = SIMD4<Float>(try reader.readFloat(), try reader.readFloat(), try reader.readFloat(), try reader.readFloat())
+            let localTransform = simd_float4x4(
+                SIMD4(row0.x, row1.x, row2.x, 0),
+                SIMD4(row0.y, row1.y, row2.y, 0),
+                SIMD4(row0.z, row1.z, row2.z, 0),
+                SIMD4(row0.w, row1.w, row2.w, 1)
+            )
+            guard localTransform.allFinite else { throw StepMeshArchiveError.invalidCounts }
+            hierarchy.append(StepMeshHierarchyNode(
+                stableID: stableID,
+                name: name.isEmpty ? nil : name,
+                parentIndex: parentIndex,
+                definitionIndex: definitionIndex,
+                isAssembly: isAssemblyValue == 1,
+                localTransform: localTransform
+            ))
+        }
+        guard rootCount > 0 else { throw StepMeshArchiveError.invalidCounts }
+        for occurrence in occurrences {
+            guard hierarchy[occurrence.nodeIndex].definitionIndex == occurrence.definitionIndex,
+                  !hierarchy[occurrence.nodeIndex].isAssembly else {
+                throw StepMeshArchiveError.invalidIndex
             }
         }
         guard displayedTriangleCount == UInt64(triangleCount),
@@ -231,108 +444,38 @@ nonisolated enum StepMeshArchive {
 
         return StepMeshData(
             colorEncoding: colorEncoding,
-            definitions: definitions, occurrences: occurrences,
+            definitions: definitions, occurrences: occurrences, hierarchy: hierarchy,
             boundsMin: boundsMin, boundsMax: boundsMax,
             triangleCount: triangleCount, faceCount: faceCount, missingFaceCount: missingFaceCount,
-            parseSeconds: parseSeconds, meshSeconds: meshSeconds
+            parseSeconds: parseSeconds, meshSeconds: meshSeconds,
+            unitScaleToMeters: unitScaleToMeters,
+            hasExplicitLengthUnit: flags & Flag.explicitLengthUnit != 0,
+            isSimplified: flags & Flag.simplified != 0
         )
-    }
-}
-
-nonisolated struct StepPreviewCache {
-    private let fileManager = FileManager.default
-    private let rootURL: URL?
-    private let profileIdentifier: String
-    private let maximumBytes: UInt64
-
-    nonisolated init(
-        rootURL: URL? = nil,
-        profileIdentifier: String = "default-v1",
-        maximumBytes: UInt64 = 512 * 1_024 * 1_024
-    ) {
-        self.rootURL = rootURL
-        self.profileIdentifier = profileIdentifier
-        self.maximumBytes = maximumBytes
-    }
-
-    nonisolated func load(for sourceURL: URL) throws -> StepMeshData? {
-        let url = try cacheURL(for: sourceURL)
-        guard fileManager.fileExists(atPath: url.path) else { return nil }
-        do {
-            let decoded = try StepMeshArchive.decode(Data(contentsOf: url, options: [.mappedIfSafe]))
-            try? fileManager.setAttributes([.modificationDate: Date()], ofItemAtPath: url.path)
-            return decoded
-        } catch {
-            try? fileManager.removeItem(at: url)
-            return nil
-        }
-    }
-
-    nonisolated func store(_ archive: Data, for sourceURL: URL) throws -> StepMeshData {
-        let decoded = try StepMeshArchive.decode(archive)
-        let destination = try cacheURL(for: sourceURL)
-        try fileManager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try archive.write(to: destination, options: [.atomic])
-        pruneIfNeeded(in: destination.deletingLastPathComponent(), preserving: destination)
-        return decoded
-    }
-
-    nonisolated private func pruneIfNeeded(in directory: URL, preserving newestURL: URL) {
-        let keys: Set<URLResourceKey> = [.contentModificationDateKey, .fileSizeKey, .isRegularFileKey]
-        guard let urls = try? fileManager.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: Array(keys),
-            options: [.skipsHiddenFiles]
-        ) else { return }
-
-        var entries: [(url: URL, size: UInt64, date: Date)] = []
-        var totalBytes: UInt64 = 0
-        for url in urls where url.pathExtension == "stlk" {
-            guard let values = try? url.resourceValues(forKeys: keys),
-                  values.isRegularFile == true else { continue }
-            let size = UInt64(max(0, values.fileSize ?? 0))
-            totalBytes &+= size
-            entries.append((url, size, values.contentModificationDate ?? .distantPast))
-        }
-
-        for entry in entries.sorted(by: { $0.date < $1.date }) {
-            guard totalBytes > maximumBytes else { break }
-            guard entry.url != newestURL else { continue }
-            guard (try? fileManager.removeItem(at: entry.url)) != nil else { continue }
-            totalBytes = totalBytes >= entry.size ? totalBytes - entry.size : 0
-        }
-    }
-
-    nonisolated private func cacheURL(for sourceURL: URL) throws -> URL {
-        let attributes = try fileManager.attributesOfItem(atPath: sourceURL.path)
-        let size = (attributes[.size] as? NSNumber)?.uint64Value ?? 0
-        let modified = (attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-        let fileNumber = (attributes[.systemFileNumber] as? NSNumber)?.uint64Value ?? 0
-        let contentDigest = try sourceContentDigest(for: sourceURL)
-        let fingerprint = [sourceURL.standardizedFileURL.path, String(size), String(modified), String(fileNumber),
-                           contentDigest, String(StepMeshArchive.version), StepMeshArchive.importerCompatibility,
-                           profileIdentifier].joined(separator: "|")
-        let digest = SHA256.hash(data: Data(fingerprint.utf8)).map { String(format: "%02x", $0) }.joined()
-        let root = rootURL ?? fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("StepLook", isDirectory: true)
-            .appendingPathComponent("PreviewCache", isDirectory: true)
-        return root.appendingPathComponent(digest).appendingPathExtension("stlk")
-    }
-
-    nonisolated private func sourceContentDigest(for sourceURL: URL) throws -> String {
-        let handle = try FileHandle(forReadingFrom: sourceURL)
-        defer { try? handle.close() }
-        var hasher = SHA256()
-        while let chunk = try handle.read(upToCount: 1_048_576), !chunk.isEmpty {
-            hasher.update(data: chunk)
-        }
-        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 }
 
 private nonisolated struct ArchiveReader {
     let data: Data
     var offset: Int
+
+    func requireRemaining(_ components: [(count: Int, stride: Int)]) throws {
+        var requiredBytes = 0
+        for component in components {
+            let (componentBytes, multiplicationOverflow) =
+                component.count.multipliedReportingOverflow(by: component.stride)
+            let (nextRequiredBytes, additionOverflow) =
+                requiredBytes.addingReportingOverflow(componentBytes)
+            guard component.count >= 0, component.stride >= 0,
+                  !multiplicationOverflow, !additionOverflow else {
+                throw StepMeshArchiveError.declaredPayloadExceedsArchive
+            }
+            requiredBytes = nextRequiredBytes
+        }
+        guard offset <= data.count, requiredBytes <= data.count - offset else {
+            throw StepMeshArchiveError.declaredPayloadExceedsArchive
+        }
+    }
 
     mutating func readUInt32() throws -> UInt32 {
         guard offset + 4 <= data.count else { throw StepMeshArchiveError.truncated }
@@ -352,6 +495,19 @@ private nonisolated struct ArchiveReader {
         let value = data.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: offset, as: UInt64.self) }
         offset += 8
         return Double(bitPattern: UInt64(littleEndian: value))
+    }
+
+    mutating func readString(maximumBytes: Int) throws -> String {
+        let byteCount = Int(try readUInt32())
+        guard byteCount <= maximumBytes, byteCount <= data.count - offset else {
+            throw StepMeshArchiveError.truncated
+        }
+        let bytes = data[offset..<(offset + byteCount)]
+        offset += byteCount
+        guard let value = String(data: bytes, encoding: .utf8) else {
+            throw StepMeshArchiveError.invalidCounts
+        }
+        return value
     }
 
     mutating func readLinearColor() throws -> SIMD4<Float> {

@@ -2,17 +2,41 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>StepLookCacheAppGroupIdentifier</key>
+	<string>$(STEPLOOK_APP_GROUP_IDENTIFIER)</string>
+	<key>StepLookCaliperBundleIdentifier</key>
+	<string>$(STEPLOOK_CALIPER_BUNDLE_IDENTIFIER)</string>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionAttributes</key>
 		<dict>
 			<key>QLIsDataBasedPreview</key>
 			<false/>
+			<!--
+			  Quick Look invokes this extension only when the file's single
+			  resolved type is listed here (or conforms to something listed).
+			  A type that is missing produces no preview, no error, and no log
+			  entry, so this list must stay in step with the declarations in
+			  StepLook/Info.plist. Provenance for each identifier is recorded in
+			  QUICKLOOK_APP.md ("STEP content-type provenance"); the host app's
+			  Diagnostics ▸ STEP Content Type… panel reports, for any chosen
+			  file, the resolved type and whether this list claims it.
+			-->
 			<key>QLSupportedContentTypes</key>
 			<array>
-				<string>com.local.stepviewer.step</string>
+				<string>$(STEPLOOK_STEP_TYPE_IDENTIFIER)</string>
+				<!-- Verified locally: declared by Shapr3D.app. -->
 				<string>com.shapr3d.step</string>
 				<string>com.shapr3d.stp</string>
+				<!-- Inferred from vendor bundle-identifier convention; unverified. -->
+				<string>com.autodesk.fusion360.step</string>
+				<string>com.autodesk.fusion360.stp</string>
+				<string>com.mcneel.rhinoceros.step</string>
+				<string>com.mcneel.rhinoceros.stp</string>
+				<string>com.bricsys.bricscad.step</string>
+				<string>com.bricsys.bricscad.stp</string>
+				<string>com.luxion.keyshot.step</string>
+				<string>com.luxion.keyshot.stp</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
 			<false/>

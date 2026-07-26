@@ -1,5 +1,7 @@
 #import "StepMeshImporter.h"
 
+#include "../StepImportCore/StepXCAFInterpretation.hxx"
+
 #include <BRepBndLib.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRep_Tool.hxx>
@@ -11,6 +13,7 @@
 #include <Quantity_ColorRGBA.hxx>
 #include <STEPCAFControl_Reader.hxx>
 #include <Standard_Failure.hxx>
+#include <TDataStd_Name.hxx>
 #include <TDF_Tool.hxx>
 #include <TDocStd_Document.hxx>
 #include <TopAbs_Orientation.hxx>
@@ -41,9 +44,34 @@
 
 namespace {
 
-constexpr uint32_t kArchiveVersion = 3;
+constexpr uint32_t kArchiveVersion = 4;
 constexpr uint32_t kLinearSRGBColorEncoding = 1;
 constexpr double kAngularDeflection = 12.0 * M_PI / 180.0;
+// Past roughly 45 degrees a cylinder reads as an octagon, which is a worse
+// answer than an honest refusal.
+constexpr double kMaximumAngularDeflection = 45.0 * M_PI / 180.0;
+constexpr uint64_t kMaximumDefinitions = 20'000;
+constexpr uint64_t kMaximumOccurrences = 200'000;
+constexpr uint64_t kMaximumHierarchyNodes = 250'000;
+
+// Graceful degradation tiers. Each retry multiplies the linear deflections by
+// this factor, which is the ratio between the shared budget's own small,
+// medium, and large tiers, so a coarsened preview looks like one the next size
+// class would have produced rather than an arbitrary reduction.
+constexpr double kSimplificationDeflectionFactor = 4.0;
+// Linear deflection alone does not reduce a curved face below what angular
+// deflection demands, and an assembly of many small curved faces is exactly the
+// case that overruns the mesh budget. Measured on the local corpus: coarsening
+// only the linear terms left two 60+ MB assemblies failing at the identical
+// triangle count. Each retry therefore also relaxes the angle.
+constexpr double kSimplificationAngularFactor = 2.0;
+constexpr int kMaximumSimplificationLevel = 2;
+// Archive header flag bits.
+constexpr uint32_t kArchiveFlagIncompleteGeometry = 1;
+constexpr uint32_t kArchiveFlagExplicitLengthUnit = 2;
+constexpr uint32_t kArchiveFlagSimplified = 4;
+constexpr size_t kMaximumMetadataStringBytes = 64 * 1'024;
+constexpr uint32_t kNoIndex = UINT32_MAX;
 
 enum class ImportErrorCode : NSInteger {
     unreadable = 1,
@@ -63,6 +91,8 @@ struct MaterialGroup {
 };
 
 struct Mesh {
+    std::string stableID;
+    std::string name;
     std::vector<Float3> positions;
     std::vector<Float3> normals;
     std::vector<uint32_t> indices;
@@ -73,10 +103,39 @@ struct Mesh {
 };
 
 struct Occurrence {
+    uint32_t nodeIndex = kNoIndex;
     uint32_t definitionIndex = 0;
     std::array<float, 12> transform{};
     bool hasColor = false;
     std::array<float, 4> color{0.72f, 0.74f, 0.77f, 1.0f};
+};
+
+struct HierarchyNode {
+    std::string stableID;
+    std::string name;
+    uint32_t parentIndex = kNoIndex;
+    uint32_t definitionIndex = kNoIndex;
+    bool isAssembly = false;
+    std::array<float, 12> localTransform{};
+};
+
+class PreviewLimitExceeded final : public std::runtime_error {
+public:
+    using std::runtime_error::runtime_error;
+};
+
+struct XCAFDocumentScope {
+    Handle(XCAFApp_Application) application;
+    Handle(TDocStd_Document) document;
+
+    ~XCAFDocumentScope() { close(); }
+
+    void close() {
+        if (!document.IsNull()) {
+            application->Close(document);
+            document.Nullify();
+        }
+    }
 };
 
 NSError *MakeError(ImportErrorCode code, NSString *description, NSString *detail = nil) {
@@ -107,6 +166,14 @@ void AppendDouble(NSMutableData *data, double value) {
     [data appendBytes:&bits length:sizeof(bits)];
 }
 
+void AppendString(NSMutableData *data, const std::string &value) {
+    if (value.size() > kMaximumMetadataStringBytes || value.size() > UINT32_MAX) {
+        throw PreviewLimitExceeded("Model metadata exceeded the preview string budget.");
+    }
+    AppendUInt32(data, static_cast<uint32_t>(value.size()));
+    [data appendBytes:value.data() length:value.size()];
+}
+
 double SecondsSince(const std::chrono::steady_clock::time_point &start) {
     return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
 }
@@ -115,6 +182,31 @@ std::string LabelID(const TDF_Label &label) {
     TCollection_AsciiString entry;
     TDF_Tool::Entry(label, entry);
     return entry.ToCString();
+}
+
+std::string LabelName(const TDF_Label &label) {
+    std::string value = stepviewer::xcaf::LabelNameUTF8(label);
+    if (value.size() > kMaximumMetadataStringBytes) {
+        throw PreviewLimitExceeded("Model metadata exceeded the preview string budget.");
+    }
+    return value;
+}
+
+std::array<float, 12> TransformArray(const TopLoc_Location &location) {
+    std::array<float, 12> result{};
+    const gp_Trsf &transform = location.Transformation();
+    for (int row = 1; row <= 3; ++row) {
+        for (int column = 1; column <= 4; ++column) {
+            const double value = transform.Value(row, column);
+            if (!std::isfinite(value)
+                || value > std::numeric_limits<float>::max()
+                || value < -std::numeric_limits<float>::max()) {
+                throw std::runtime_error("A component transform was not finite.");
+            }
+            result[(row - 1) * 4 + column - 1] = static_cast<float>(value);
+        }
+    }
+    return result;
 }
 
 double ShapeDiagonal(const TopoDS_Shape &shape) {
@@ -149,15 +241,7 @@ double ShapeDiagonal(const TopoDS_Shape &shape) {
 
 bool StyleLinearColor(const XCAFPrs_Style &style, std::array<float, 4> &result) {
     Quantity_ColorRGBA rgba;
-    if (style.IsSetColorSurf()) {
-        rgba = style.GetColorSurfRGBA();
-    } else if (!style.Material().IsNull()
-               && (style.Material()->HasPbrMaterial()
-                   || style.Material()->HasCommonMaterial())) {
-        rgba = style.Material()->BaseColor();
-    } else {
-        return false;
-    }
+    if (!stepviewer::xcaf::SourceColor(style, rgba)) return false;
     const Quantity_Color &rgb = rgba.GetRGB();
     result = {static_cast<float>(rgb.Red()), static_cast<float>(rgb.Green()),
               static_cast<float>(rgb.Blue()), static_cast<float>(rgba.Alpha())};
@@ -222,9 +306,24 @@ Mesh Tessellate(const TopoDS_Shape &shape,
                 double relativeDeflection,
                 double minimumDeflection,
                 double maximumDeflection,
+                double angularDeflection,
+                uint64_t maximumTriangles,
+                uint64_t maximumVertices,
                 double &mesherSeconds,
                 double &styleSeconds,
                 double &extractSeconds) {
+    const uint64_t maximumTopologyItems = maximumTriangles > (UINT64_MAX - 1'024) / 8
+        ? UINT64_MAX : maximumTriangles * 8 + 1'024;
+    uint64_t topologyItems = 0;
+    for (TopAbs_ShapeEnum kind : {TopAbs_FACE, TopAbs_EDGE, TopAbs_VERTEX}) {
+        for (TopExp_Explorer explorer(shape, kind); explorer.More(); explorer.Next()) {
+            if (topologyItems == maximumTopologyItems) {
+                throw PreviewLimitExceeded("The model exceeded the preview topology budget.");
+            }
+            ++topologyItems;
+        }
+    }
+
     const double diagonal = ShapeDiagonal(shape);
     if (!(diagonal > 0) || !std::isfinite(diagonal)) {
         throw std::runtime_error("A part has no finite bounds.");
@@ -235,9 +334,17 @@ Mesh Tessellate(const TopoDS_Shape &shape,
     parameters.Deflection = std::clamp(rawDeflection,
                                        std::max(minimumDeflection, 1.0e-6),
                                        std::max(maximumDeflection, minimumDeflection));
-    parameters.Angle = kAngularDeflection;
+    parameters.Angle = std::clamp(angularDeflection, kAngularDeflection,
+                                  kMaximumAngularDeflection);
     parameters.Relative = Standard_False;
-    parameters.InParallel = Standard_True;
+    // A retry asks for a deliberately worse mesh than the attempt before it.
+    // OCCT's incremental mesher keeps an existing triangulation that already
+    // satisfies the request, so without this a coarsening retry silently reuses
+    // the finer mesh and fails at the identical triangle count.
+    parameters.AllowQualityDecrease = Standard_True;
+    // One helper performs one import at a time. Serial meshing avoids an
+    // unbounded per-face worker fan-out and gives previews a predictable peak.
+    parameters.InParallel = Standard_False;
     const auto mesherStart = std::chrono::steady_clock::now();
     BRepMesh_IncrementalMesh mesher(shape, parameters);
     mesherSeconds += SecondsSince(mesherStart);
@@ -257,19 +364,33 @@ Mesh Tessellate(const TopoDS_Shape &shape,
 
     const auto extractStart = std::chrono::steady_clock::now();
     Mesh mesh;
-    size_t totalNodes = 0;
-    size_t totalIndices = 0;
+    uint64_t totalNodes = 0;
+    uint64_t totalIndices = 0;
     for (TopExp_Explorer explorer(shape, TopAbs_FACE); explorer.More(); explorer.Next()) {
         TopLoc_Location faceLocation;
         const Handle(Poly_Triangulation) triangulation = BRep_Tool::Triangulation(
             TopoDS::Face(explorer.Current()), faceLocation);
         if (triangulation.IsNull()) continue;
-        totalNodes += static_cast<size_t>(triangulation->NbNodes());
-        totalIndices += 3 * static_cast<size_t>(triangulation->NbTriangles());
+        const uint64_t nodes = static_cast<uint64_t>(triangulation->NbNodes());
+        const uint64_t triangles = static_cast<uint64_t>(triangulation->NbTriangles());
+        if (nodes > maximumVertices - std::min(maximumVertices, totalNodes)
+            || triangles > maximumTriangles - std::min(maximumTriangles, totalIndices / 3)
+            || triangles > (std::numeric_limits<uint64_t>::max() - totalIndices) / 3) {
+            throw PreviewLimitExceeded("Tessellation exceeded the preview mesh budget.");
+        }
+        totalNodes += nodes;
+        totalIndices += triangles * 3;
     }
-    mesh.positions.reserve(totalNodes);
-    mesh.normals.reserve(totalNodes);
-    mesh.indices.reserve(totalIndices);
+    if (totalNodes == 0 || totalIndices == 0
+        || totalNodes > maximumVertices || totalIndices / 3 > maximumTriangles
+        || totalNodes > UINT32_MAX || totalIndices > UINT32_MAX
+        || totalNodes > std::numeric_limits<size_t>::max()
+        || totalIndices > std::numeric_limits<size_t>::max()) {
+        throw PreviewLimitExceeded("Tessellation exceeded the preview mesh budget.");
+    }
+    mesh.positions.reserve(static_cast<size_t>(totalNodes));
+    mesh.normals.reserve(static_cast<size_t>(totalNodes));
+    mesh.indices.reserve(static_cast<size_t>(totalIndices));
     Float3 minimum{std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
     Float3 maximum{-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max()};
 
@@ -281,6 +402,9 @@ Mesh Tessellate(const TopoDS_Shape &shape,
         if (triangulation.IsNull() || triangulation->NbTriangles() == 0) {
             ++mesh.missingFaceCount;
             continue;
+        }
+        if (mesh.faceCount == UINT32_MAX) {
+            throw PreviewLimitExceeded("The model exceeded the preview topology budget.");
         }
         if (!triangulation->HasNormals()) triangulation->ComputeNormals();
 
@@ -320,15 +444,13 @@ Mesh Tessellate(const TopoDS_Shape &shape,
     return mesh;
 }
 
-Occurrence MakeOccurrence(const XCAFPrs_DocumentNode &node, uint32_t definitionIndex) {
+Occurrence MakeOccurrence(const XCAFPrs_DocumentNode &node,
+                          uint32_t nodeIndex,
+                          uint32_t definitionIndex) {
     Occurrence occurrence;
+    occurrence.nodeIndex = nodeIndex;
     occurrence.definitionIndex = definitionIndex;
-    const gp_Trsf &transform = node.Location.Transformation();
-    for (int row = 1; row <= 3; ++row) {
-        for (int column = 1; column <= 4; ++column) {
-            occurrence.transform[(row - 1) * 4 + column - 1] = static_cast<float>(transform.Value(row, column));
-        }
-    }
+    occurrence.transform = TransformArray(node.Location);
     // DocumentExplorer resolves inherited part and component-instance styles for this leaf.
     occurrence.hasColor = StyleLinearColor(node.Style, occurrence.color);
     return occurrence;
@@ -349,6 +471,7 @@ Float3 TransformPoint(const std::array<float, 12> &m, float x, float y, float z)
                    relativeDeflection:(double)relativeDeflection
                    minimumDeflection:(double)minimumDeflection
                    maximumDeflection:(double)maximumDeflection
+          startingSimplificationLevel:(NSUInteger)startingSimplificationLevel
                               metrics:(NSDictionary<NSString *, id> * _Nullable * _Nullable)metrics
                                 error:(NSError * _Nullable * _Nullable)error {
     try {
@@ -356,12 +479,13 @@ Float3 TransformPoint(const std::array<float, 12> &m, float x, float y, float z)
         const Handle(XCAFApp_Application) application = XCAFApp_Application::GetApplication();
         Handle(TDocStd_Document) document;
         application->NewDocument("BinXCAF", document);
+        XCAFDocumentScope documentScope{application, document};
 
         STEPCAFControl_Reader reader;
         reader.SetColorMode(Standard_True);
         reader.SetSHUOMode(Standard_False);
         reader.SetMatMode(Standard_False);
-        reader.SetNameMode(Standard_False);
+        reader.SetNameMode(Standard_True);
         reader.SetLayerMode(Standard_False);
         reader.SetPropsMode(Standard_False);
         reader.SetMetaMode(Standard_False);
@@ -371,7 +495,7 @@ Float3 TransformPoint(const std::array<float, 12> &m, float x, float y, float z)
         const auto readStart = std::chrono::steady_clock::now();
         DESTEP_Parameters readParameters;
         readParameters.InitFromStatic();
-        readParameters.ReadName = false;
+        readParameters.ReadName = true;
         readParameters.ReadLayer = false;
         readParameters.ReadProps = false;
         readParameters.ReadMetadata = false;
@@ -379,7 +503,6 @@ Float3 TransformPoint(const std::array<float, 12> &m, float x, float y, float z)
         readParameters.ReadTessellated = DESTEP_Parameters::RWMode_Tessellated_OnNoBRep;
         if (reader.ReadFile(path.fileSystemRepresentation, readParameters) != IFSelect_RetDone) {
             if (error) *error = MakeError(ImportErrorCode::unreadable, @"This STEP file could not be read.");
-            application->Close(document);
             return nil;
         }
         const double readSeconds = SecondsSince(readStart);
@@ -407,53 +530,181 @@ Float3 TransformPoint(const std::array<float, 12> &m, float x, float y, float z)
         const auto transferStart = std::chrono::steady_clock::now();
         if (!reader.Transfer(document)) {
             if (error) *error = MakeError(ImportErrorCode::transferFailed, @"The STEP file did not contain transferable geometry.");
-            application->Close(document);
             return nil;
         }
         const double transferSeconds = SecondsSince(transferStart);
         const double parseSeconds = SecondsSince(parseStart);
         const auto meshStart = std::chrono::steady_clock::now();
 
+        Standard_Real unitScaleToMeters = 0.001;
+        const bool hasExplicitLengthUnit =
+            XCAFDoc_DocumentTool::GetLengthUnit(document, unitScaleToMeters)
+            && std::isfinite(unitScaleToMeters) && unitScaleToMeters > 0;
+        if (!hasExplicitLengthUnit) unitScaleToMeters = 0.001;
+
         const Handle(XCAFDoc_ShapeTool) shapeTool = XCAFDoc_DocumentTool::ShapeTool(document->Main());
         std::unordered_map<std::string, uint32_t> definitionByID;
+        std::unordered_map<std::string, uint32_t> nodeByID;
         std::vector<Mesh> definitions;
         std::vector<Occurrence> occurrences;
+        std::vector<HierarchyNode> hierarchyNodes;
         uint64_t uniqueTriangleCount = 0;
         double mesherSeconds = 0;
         double styleSeconds = 0;
         double extractSeconds = 0;
-
-        XCAFPrs_DocumentExplorer explorer(document, XCAFPrs_DocumentExplorerFlags_OnlyLeafNodes);
-        for (; explorer.More(); explorer.Next()) {
-            const XCAFPrs_DocumentNode &node = explorer.Current();
-            const TDF_Label definitionLabel = node.RefLabel.IsNull() ? node.Label : node.RefLabel;
-            const std::string id = LabelID(definitionLabel);
-            auto found = definitionByID.find(id);
-            if (found == definitionByID.end()) {
-                const TopoDS_Shape shape = shapeTool->GetShape(definitionLabel);
-                if (shape.IsNull()) throw std::runtime_error("A referenced part has no shape.");
-                Mesh mesh = Tessellate(shape, definitionLabel, relativeDeflection,
-                                       minimumDeflection, maximumDeflection,
-                                       mesherSeconds, styleSeconds, extractSeconds);
-                uniqueTriangleCount += mesh.indices.size() / 3;
-                const uint32_t index = static_cast<uint32_t>(definitions.size());
-                definitions.push_back(std::move(mesh));
-                found = definitionByID.emplace(id, index).first;
-            }
-            occurrences.push_back(MakeOccurrence(node, found->second));
-        }
-
-        if (definitions.empty() || occurrences.empty()) {
-            if (error) *error = MakeError(ImportErrorCode::emptyGeometry, @"The STEP file did not contain visible geometry.");
-            application->Close(document);
-            return nil;
-        }
-
         uint64_t displayedTriangles = 0;
         uint64_t totalFaces = 0;
         uint64_t missingFaces = 0;
         uint64_t materialGroups = 0;
         uint64_t coloredMaterialGroups = 0;
+        Float3 globalMin{};
+        Float3 globalMax{};
+
+        // Graceful degradation. A mesh-budget overrun is a property of the
+        // chosen tessellation, not of the source: the same document usually
+        // fits comfortably one tier coarser. Only the mesh phase repeats — the
+        // parse and XCAF transfer above dominate cost and are never redone —
+        // and the service's deadline watchdog still bounds the whole attempt.
+        // A coarsened result is marked simplified all the way to the badge so
+        // it is never mistaken for exact geometry.
+        int simplificationLevel = static_cast<int>(std::min<NSUInteger>(
+            startingSimplificationLevel,
+            static_cast<NSUInteger>(kMaximumSimplificationLevel)));
+        for (;;) {
+        const double simplificationScale =
+            std::pow(kSimplificationDeflectionFactor, simplificationLevel);
+        const double attemptRelativeDeflection = relativeDeflection * simplificationScale;
+        const double attemptMinimumDeflection = minimumDeflection * simplificationScale;
+        const double attemptMaximumDeflection = maximumDeflection * simplificationScale;
+        const double attemptAngularDeflection = kAngularDeflection
+            * std::pow(kSimplificationAngularFactor, simplificationLevel);
+        definitionByID.clear();
+        nodeByID.clear();
+        definitions.clear();
+        occurrences.clear();
+        hierarchyNodes.clear();
+        uniqueTriangleCount = 0;
+        displayedTriangles = 0;
+        totalFaces = 0;
+        missingFaces = 0;
+        materialGroups = 0;
+        coloredMaterialGroups = 0;
+        try {
+
+        std::vector<uint32_t> nodeAtDepth;
+        XCAFPrs_DocumentExplorer hierarchyExplorer(
+            document, XCAFPrs_DocumentExplorerFlags_NoStyle);
+        for (; hierarchyExplorer.More(); hierarchyExplorer.Next()) {
+            if (hierarchyNodes.size() == kMaximumHierarchyNodes) {
+                throw PreviewLimitExceeded("The assembly exceeded the preview hierarchy budget.");
+            }
+            const XCAFPrs_DocumentNode &source = hierarchyExplorer.Current();
+            const Standard_Integer depth = hierarchyExplorer.CurrentDepth();
+            if (depth < 0 || static_cast<size_t>(depth) > nodeAtDepth.size()) {
+                throw std::runtime_error("The assembly hierarchy was not well formed.");
+            }
+            HierarchyNode node;
+            node.stableID = source.Id.ToCString();
+            node.name = LabelName(source.Label);
+            if (node.name.empty() && !source.RefLabel.IsNull()) {
+                node.name = LabelName(source.RefLabel);
+            }
+            node.parentIndex = depth == 0 ? kNoIndex : nodeAtDepth[depth - 1];
+            node.isAssembly = source.IsAssembly;
+            node.localTransform = TransformArray(source.LocalTrsf);
+            const uint32_t nodeIndex = static_cast<uint32_t>(hierarchyNodes.size());
+            if (!nodeByID.emplace(node.stableID, nodeIndex).second) {
+                throw std::runtime_error("The assembly contained duplicate stable node identifiers.");
+            }
+            hierarchyNodes.push_back(std::move(node));
+            nodeAtDepth.resize(static_cast<size_t>(depth) + 1);
+            nodeAtDepth[depth] = nodeIndex;
+        }
+
+        // Count occurrence multiplicity before tessellating. A definition used
+        // thousands of times consumes the displayed-triangle budget thousands
+        // of times even though its vertex buffers are stored only once.
+        std::unordered_map<std::string, uint64_t> occurrenceCountByDefinition;
+        uint64_t occurrenceCount = 0;
+        XCAFPrs_DocumentExplorer countingExplorer(
+            document, XCAFPrs_DocumentExplorerFlags_OnlyLeafNodes);
+        for (; countingExplorer.More(); countingExplorer.Next()) {
+            if (occurrenceCount == kMaximumOccurrences) {
+                throw PreviewLimitExceeded("The assembly exceeded the preview occurrence budget.");
+            }
+            ++occurrenceCount;
+            const XCAFPrs_DocumentNode &node = countingExplorer.Current();
+            const TDF_Label definitionLabel =
+                stepviewer::xcaf::DefinitionLabel(node);
+            const std::string id = LabelID(definitionLabel);
+            auto [entry, inserted] = occurrenceCountByDefinition.emplace(id, 0);
+            if (inserted && occurrenceCountByDefinition.size() > kMaximumDefinitions) {
+                throw PreviewLimitExceeded("The assembly exceeded the preview definition budget.");
+            }
+            if (entry->second == std::numeric_limits<uint64_t>::max()) {
+                throw PreviewLimitExceeded("The assembly occurrence count overflowed.");
+            }
+            ++entry->second;
+        }
+
+        uint64_t committedDisplayedTriangles = 0;
+        XCAFPrs_DocumentExplorer explorer(
+            document, XCAFPrs_DocumentExplorerFlags_OnlyLeafNodes);
+        for (; explorer.More(); explorer.Next()) {
+            const XCAFPrs_DocumentNode &node = explorer.Current();
+            const TDF_Label definitionLabel =
+                stepviewer::xcaf::DefinitionLabel(node);
+            const std::string id = LabelID(definitionLabel);
+            auto found = definitionByID.find(id);
+            if (found == definitionByID.end()) {
+                const uint64_t multiplicity = occurrenceCountByDefinition.at(id);
+                const uint64_t remainingDisplayedTriangles =
+                    static_cast<uint64_t>(maxTriangles) - committedDisplayedTriangles;
+                const uint64_t definitionTriangleBudget =
+                    remainingDisplayedTriangles / multiplicity;
+                if (definitionTriangleBudget == 0) {
+                    throw PreviewLimitExceeded("The assembly exceeded the preview triangle budget.");
+                }
+                const uint64_t definitionVertexBudget =
+                    definitionTriangleBudget > UINT32_MAX / 3
+                    ? UINT32_MAX : definitionTriangleBudget * 3;
+                const TopoDS_Shape shape = shapeTool->GetShape(definitionLabel);
+                if (shape.IsNull()) throw std::runtime_error("A referenced part has no shape.");
+                Mesh mesh = Tessellate(shape, definitionLabel, attemptRelativeDeflection,
+                                       attemptMinimumDeflection, attemptMaximumDeflection,
+                                       attemptAngularDeflection,
+                                       definitionTriangleBudget, definitionVertexBudget,
+                                       mesherSeconds, styleSeconds, extractSeconds);
+                mesh.stableID = id;
+                mesh.name = LabelName(definitionLabel);
+                const uint64_t definitionTriangles = mesh.indices.size() / 3;
+                uniqueTriangleCount += definitionTriangles;
+                committedDisplayedTriangles += definitionTriangles * multiplicity;
+                const uint32_t index = static_cast<uint32_t>(definitions.size());
+                definitions.push_back(std::move(mesh));
+                found = definitionByID.emplace(id, index).first;
+            }
+            const auto nodeEntry = nodeByID.find(node.Id.ToCString());
+            if (nodeEntry == nodeByID.end()) {
+                throw std::runtime_error("A visible occurrence was missing from the hierarchy.");
+            }
+            occurrences.push_back(MakeOccurrence(node, nodeEntry->second, found->second));
+        }
+
+        if (definitions.empty() || occurrences.empty()) {
+            if (error) *error = MakeError(ImportErrorCode::emptyGeometry, @"The STEP file did not contain visible geometry.");
+            return nil;
+        }
+
+        for (const Occurrence &occurrence : occurrences) {
+            HierarchyNode &node = hierarchyNodes[occurrence.nodeIndex];
+            if (node.definitionIndex != kNoIndex
+                && node.definitionIndex != occurrence.definitionIndex) {
+                throw std::runtime_error("A hierarchy node referenced conflicting definitions.");
+            }
+            node.definitionIndex = occurrence.definitionIndex;
+        }
+
         for (const Mesh &mesh : definitions) {
             totalFaces += mesh.faceCount;
             missingFaces += mesh.missingFaceCount;
@@ -462,17 +713,23 @@ Float3 TransformPoint(const std::array<float, 12> &m, float x, float y, float z)
                 mesh.materialGroups.begin(), mesh.materialGroups.end(),
                 [](const MaterialGroup &group) { return group.hasFaceColor; });
         }
+        if (totalFaces > UINT32_MAX || missingFaces > UINT32_MAX) {
+            throw PreviewLimitExceeded("The model exceeded the preview face budget.");
+        }
         for (const Occurrence &occurrence : occurrences) {
             displayedTriangles += definitions[occurrence.definitionIndex].indices.size() / 3;
             if (displayedTriangles > maxTriangles || displayedTriangles > UINT32_MAX) {
-                if (error) *error = MakeError(ImportErrorCode::tooComplex, @"This assembly is too complex for the current preview limit.");
-                application->Close(document);
-                return nil;
+                // Retryable: this is the budget the coarser tier exists for.
+                throw PreviewLimitExceeded(
+                    "The assembly exceeded the displayed triangle budget.");
             }
         }
+        if (displayedTriangles != committedDisplayedTriangles) {
+            throw std::runtime_error("The assembly triangle accounting was inconsistent.");
+        }
 
-        Float3 globalMin{std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
-        Float3 globalMax{-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max()};
+        globalMin = {std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
+        globalMax = {-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max()};
         for (const Occurrence &occurrence : occurrences) {
             const auto &b = definitions[occurrence.definitionIndex].bounds;
             for (int corner = 0; corner < 8; ++corner) {
@@ -483,15 +740,28 @@ Float3 TransformPoint(const std::array<float, 12> &m, float x, float y, float z)
             }
         }
 
+        } catch (const PreviewLimitExceeded &limit) {
+            if (simplificationLevel >= kMaximumSimplificationLevel) throw;
+            ++simplificationLevel;
+            continue;
+        }
+        break;
+        }
+
         const double meshSeconds = SecondsSince(meshStart);
         const auto serializeStart = std::chrono::steady_clock::now();
         NSMutableData *archive = [NSMutableData data];
         const char magic[4] = {'S', 'T', 'L', 'K'};
         [archive appendBytes:magic length:4];
         AppendUInt32(archive, kArchiveVersion);
-        AppendUInt32(archive, missingFaces > 0 ? 1u : 0u);
+        const uint32_t archiveFlags =
+            (missingFaces > 0 ? kArchiveFlagIncompleteGeometry : 0u)
+            | (hasExplicitLengthUnit ? kArchiveFlagExplicitLengthUnit : 0u)
+            | (simplificationLevel > 0 ? kArchiveFlagSimplified : 0u);
+        AppendUInt32(archive, archiveFlags);
         AppendUInt32(archive, static_cast<uint32_t>(definitions.size()));
         AppendUInt32(archive, static_cast<uint32_t>(occurrences.size()));
+        AppendUInt32(archive, static_cast<uint32_t>(hierarchyNodes.size()));
         AppendUInt32(archive, static_cast<uint32_t>(displayedTriangles));
         AppendUInt32(archive, static_cast<uint32_t>(totalFaces));
         AppendUInt32(archive, static_cast<uint32_t>(missingFaces));
@@ -499,8 +769,11 @@ Float3 TransformPoint(const std::array<float, 12> &m, float x, float y, float z)
         for (float value : {globalMin.x, globalMin.y, globalMin.z, globalMax.x, globalMax.y, globalMax.z}) AppendFloat(archive, value);
         AppendDouble(archive, parseSeconds);
         AppendDouble(archive, meshSeconds);
+        AppendDouble(archive, unitScaleToMeters);
 
         for (const Mesh &mesh : definitions) {
+            AppendString(archive, mesh.stableID);
+            AppendString(archive, mesh.name);
             AppendUInt32(archive, static_cast<uint32_t>(mesh.positions.size()));
             AppendUInt32(archive, static_cast<uint32_t>(mesh.indices.size()));
             AppendUInt32(archive, static_cast<uint32_t>(mesh.materialGroups.size()));
@@ -526,15 +799,24 @@ Float3 TransformPoint(const std::array<float, 12> &m, float x, float y, float z)
             }
         }
         for (const Occurrence &occurrence : occurrences) {
+            AppendUInt32(archive, occurrence.nodeIndex);
             AppendUInt32(archive, occurrence.definitionIndex);
             AppendUInt32(archive, occurrence.hasColor ? 1u : 0u);
             for (float value : occurrence.transform) AppendFloat(archive, value);
             for (float value : occurrence.color) AppendFloat(archive, value);
         }
+        for (const HierarchyNode &node : hierarchyNodes) {
+            AppendString(archive, node.stableID);
+            AppendString(archive, node.name);
+            AppendUInt32(archive, node.parentIndex);
+            AppendUInt32(archive, node.definitionIndex);
+            AppendUInt32(archive, node.isAssembly ? 1u : 0u);
+            for (float value : node.localTransform) AppendFloat(archive, value);
+        }
 
         const double serializeSeconds = SecondsSince(serializeStart);
         const auto closeStart = std::chrono::steady_clock::now();
-        application->Close(document);
+        documentScope.close();
         const double closeSeconds = SecondsSince(closeStart);
         if (metrics) {
             *metrics = @{@"parseSeconds": @(parseSeconds), @"readSeconds": @(readSeconds),
@@ -547,9 +829,20 @@ Float3 TransformPoint(const std::array<float, 12> &m, float x, float y, float z)
                          @"materialGroups": @(materialGroups),
                          @"coloredMaterialGroups": @(coloredMaterialGroups),
                          @"definitions": @(definitions.size()), @"occurrences": @(occurrences.size()),
+                         @"hierarchyNodes": @(hierarchyNodes.size()),
+                         @"unitScaleToMeters": @(unitScaleToMeters),
+                         @"hasExplicitLengthUnit": @(hasExplicitLengthUnit),
+                         @"simplificationLevel": @(simplificationLevel),
                          @"archiveBytes": @(archive.length)};
         }
         return archive;
+    } catch (const PreviewLimitExceeded &exception) {
+        if (error) {
+            *error = MakeError(
+                ImportErrorCode::tooComplex,
+                @"This assembly is too complex for the current preview limit.",
+                [NSString stringWithUTF8String:exception.what()]);
+        }
     } catch (const Standard_Failure &failure) {
         if (error) {
             NSString *detail = failure.GetMessageString() ? [NSString stringWithUTF8String:failure.GetMessageString()] : nil;

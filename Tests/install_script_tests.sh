@@ -6,9 +6,11 @@ readonly tests_directory=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 readonly repository_root=$(dirname -- "$tests_directory")
 readonly installer_source="$repository_root/install.sh"
 readonly validator_source="$repository_root/Scripts/validate_homebrew_dependencies.sh"
+readonly temporary_root=$(CDPATH= cd -- "${TMPDIR:-/tmp}" && pwd -P)
 
 passed=0
 failed=0
+fixture_root=
 
 pass() {
   passed=$((passed + 1))
@@ -29,8 +31,7 @@ assert_contains() {
 }
 
 make_fixture() {
-  fixture_root=$(mktemp -d "${TMPDIR:-/tmp}/lookstep-installer-tests.XXXXXX")
-  fixture_root=$(CDPATH= cd -- "$fixture_root" && pwd -P)
+  fixture_root=$(mktemp -d "$temporary_root/lookstep-installer-tests.XXXXXX")
   fixture_repo="$fixture_root/source folder"
   fixture_home="$fixture_root/home"
   fixture_bin="$fixture_root/bin"
@@ -57,7 +58,7 @@ printf '%s\n' "${FAKE_ARCHITECTURE:-arm64}"
 EOF
   cat > "$fixture_bin/sw_vers" <<'EOF'
 #!/bin/sh
-printf '%s\n' "${FAKE_MACOS_VERSION:-15.5}"
+printf '%s\n' "${FAKE_MACOS_VERSION:-26.5}"
 EOF
   cat > "$fixture_bin/brew" <<'EOF'
 #!/bin/sh
@@ -124,6 +125,47 @@ if [ "${FAKE_UNWANTED_THUMBNAIL:-0}" -ne 0 ]; then
 fi
 printf '#!/bin/sh\nexit 0\n' > "$app/Contents/MacOS/LookSTEP"
 chmod +x "$app/Contents/MacOS/LookSTEP"
+# install.sh proves the bundled Open CASCADE libraries actually map into the
+# import services before installing. Stand in for both service executables: a
+# healthy one refuses to run directly, a broken one reports the dyld library
+# validation failure that ad-hoc signing produced before the importer received
+# com.apple.security.cs.disable-library-validation.
+for service_directory in \
+  "$app/Contents/XPCServices/StepImportService.xpc" \
+  "$app/Contents/PlugIns/StepLookPreview.appex/Contents/XPCServices/StepImportService.xpc"; do
+  [ -d "$service_directory" ] || continue
+  mkdir -p "$service_directory/Contents/MacOS"
+  service_executable="$service_directory/Contents/MacOS/StepImportService"
+  if [ "${FAKE_IMPORTER_LIBRARY_FAILURE:-0}" -ne 0 ]; then
+    cat > "$service_executable" <<'SERVICE'
+#!/bin/sh
+echo "dyld[0]: Library not loaded: @rpath/libTKDESTEP.7.9.dylib" >&2
+echo "  Reason: ... not valid for use in process: mapping process and mapped file (non-platform) have different Team IDs" >&2
+exit 1
+SERVICE
+  else
+    cat > "$service_executable" <<'SERVICE'
+#!/bin/sh
+echo "An XPC Service cannot be run directly." >&2
+exit 1
+SERVICE
+  fi
+  chmod +x "$service_executable"
+done
+# A real app extension always carries an Info.plist, and install.sh reads the
+# preview extension's CFBundleIdentifier from it rather than hardcoding a
+# bundle prefix that is now a build setting.
+mkdir -p "$app/Contents/PlugIns/StepLookPreview.appex/Contents"
+cat > "$app/Contents/PlugIns/StepLookPreview.appex/Contents/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>com.example.fixture.StepLook.StepLookPreview</string>
+</dict>
+</plist>
+PLIST
 EOF
   cat > "$fixture_bin/codesign" <<'EOF'
 #!/bin/sh
@@ -171,15 +213,37 @@ fi
 if [ "${1:-}" = -a ] && [ "${FAKE_PLUGIN_ADD_FAILURE:-0}" -ne 0 ]; then
   exit 1
 fi
+if [ "${1:-}" = -a ]; then
+  printf '%s\n' "$2" > "$FAKE_PLUGIN_STATE"
+fi
+if [ "${1:-}" = -m ] && [ -f "$FAKE_PLUGIN_STATE" ]; then
+  cat "$FAKE_PLUGIN_STATE"
+fi
 EOF
   chmod +x "$fixture_bin"/* "$fixture_repo/install.sh" "$fixture_repo/Scripts/validate_homebrew_dependencies.sh"
 }
 
 remove_fixture() {
   case "${fixture_root:-}" in
-    "${TMPDIR:-/tmp}"/lookstep-installer-tests.*) rm -rf -- "$fixture_root" ;;
+    "")
+      ;;
+    "$temporary_root"/lookstep-installer-tests.*)
+      if /bin/rm -rf -- "$fixture_root" && [ ! -e "$fixture_root" ]; then
+        fixture_root=
+      else
+        fail_test "test fixture cleanup removes its canonical temporary directory"
+      fi
+      ;;
+    *)
+      fail_test "test fixture cleanup refuses a path outside the canonical temporary directory"
+      ;;
   esac
 }
+
+trap 'remove_fixture' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 run_installer() {
   HOME="$fixture_home" \
@@ -189,6 +253,7 @@ run_installer() {
   FAKE_COMMAND_LOG="$fixture_log" \
   FAKE_OCCT_INSTALLED_STATE="$fixture_root/occt-installed" \
   FAKE_MV_FAILURE_STATE="$fixture_root/mv-failed" \
+  FAKE_PLUGIN_STATE="$fixture_root/plugin-state" \
   LOOKSTEP_TEST_SYSTEM_APPLICATIONS_DIRECTORY="$fixture_root/System Applications" \
   LOOKSTEP_TEST_USER_APPLICATIONS_DIRECTORY="$fixture_home/Applications" \
   "$fixture_repo/install.sh" "$@"
@@ -241,9 +306,9 @@ test_upgrade_backup() {
 
 test_old_macos_rejected() {
   make_fixture
-  if FAKE_MACOS_VERSION=14.7 run_installer --install-dir "$fixture_root/Applications" > "$fixture_root/output" 2>&1; then
+  if FAKE_MACOS_VERSION=25.7 run_installer --install-dir "$fixture_root/Applications" > "$fixture_root/output" 2>&1; then
     fail_test "old macOS is rejected"
-  elif assert_contains "$fixture_root/output" "requires macOS 15" &&
+  elif assert_contains "$fixture_root/output" "requires macOS 26" &&
        ! assert_contains "$fixture_log" "xcodebuild"; then
     pass "old macOS is rejected before building"
   else
@@ -411,15 +476,31 @@ test_unwritable_destination_rejected_before_build() {
   remove_fixture
 }
 
-test_registered_provider_skips_fallback() {
+test_registered_provider_is_refreshed() {
   make_fixture
   install_root="$fixture_root/Applications"
   provider="$install_root/LookSTEP.app/Contents/PlugIns/StepLookPreview.appex"
   if FAKE_PLUGIN_DISCOVERED_PATH="$provider" run_installer --install-dir "$install_root" --no-open > "$fixture_root/output" 2>&1 &&
-     ! assert_contains "$fixture_log" "pluginkit -a"; then
-    pass "already discovered preview provider skips fallback registration"
+     assert_contains "$fixture_log" "pluginkit -a $provider" &&
+     ! assert_contains "$fixture_log" "pluginkit -r $provider"; then
+    pass "already discovered installed provider is refreshed without removal"
   else
-    fail_test "already discovered preview provider skips fallback registration"
+    fail_test "already discovered installed provider is refreshed without removal"
+  fi
+  remove_fixture
+}
+
+test_competing_registered_provider_is_removed() {
+  make_fixture
+  install_root="$fixture_root/Applications"
+  stale_provider="$fixture_root/build/Debug/LookSTEP.app/Contents/PlugIns/StepLookPreview.appex"
+  installed_provider="$install_root/LookSTEP.app/Contents/PlugIns/StepLookPreview.appex"
+  if FAKE_PLUGIN_DISCOVERED_PATH="$stale_provider" run_installer --install-dir "$install_root" --no-open > "$fixture_root/output" 2>&1 &&
+     assert_contains "$fixture_log" "pluginkit -r $stale_provider" &&
+     assert_contains "$fixture_log" "pluginkit -a $installed_provider"; then
+    pass "competing registered preview provider is removed before refresh"
+  else
+    fail_test "competing registered preview provider is removed before refresh"
   fi
   remove_fixture
 }
@@ -489,8 +570,25 @@ test_intel_dependency_rejected() {
   remove_fixture
 }
 
+test_importer_library_failure_preserves_install() {
+  make_fixture
+  install_root="$fixture_root/Applications"
+  mkdir -p "$install_root/LookSTEP.app"
+  printf 'old app\n' > "$install_root/LookSTEP.app/old-marker"
+  if FAKE_IMPORTER_LIBRARY_FAILURE=1 run_installer --install-dir "$install_root" > "$fixture_root/output" 2>&1; then
+    fail_test "an importer that cannot load Open CASCADE is rejected"
+  elif assert_contains "$fixture_root/output" "cannot load its bundled Open CASCADE libraries" &&
+       assert_file "$install_root/LookSTEP.app/old-marker"; then
+    pass "an importer that cannot load Open CASCADE is rejected and the previous install survives"
+  else
+    fail_test "an importer that cannot load Open CASCADE is rejected"
+  fi
+  remove_fixture
+}
+
 test_help
 test_fresh_install
+test_importer_library_failure_preserves_install
 test_upgrade_backup
 test_old_macos_rejected
 test_build_failure_preserves_install
@@ -503,7 +601,8 @@ test_competing_copy_rejected
 test_custom_destination_with_standard_copy_rejected
 test_missing_occt_noninteractive_rejected
 test_unwritable_destination_rejected_before_build
-test_registered_provider_skips_fallback
+test_registered_provider_is_refreshed
+test_competing_registered_provider_is_removed
 test_registration_failure_is_nonfatal
 test_invalid_destination_rejected
 test_dependency_version_mismatch_rejected

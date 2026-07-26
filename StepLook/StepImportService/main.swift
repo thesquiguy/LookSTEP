@@ -8,6 +8,7 @@
 import Foundation
 
 class ServiceDelegate: NSObject, NSXPCListenerDelegate {
+    private let service = StepImportService()
 
     /// This method is where the NSXPCListener configures, accepts, and resumes a new incoming NSXPCConnection.
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection newConnection: NSXPCConnection) -> Bool {
@@ -17,8 +18,7 @@ class ServiceDelegate: NSObject, NSXPCListenerDelegate {
         newConnection.exportedInterface = NSXPCInterface(with: (any StepImportServiceProtocol).self)
 
         // Next, set the object that the connection exports. All messages sent on the connection to this service will be sent to the exported object to handle. The connection retains the exported object.
-        let exportedObject = StepImportService()
-        newConnection.exportedObject = exportedObject
+        newConnection.exportedObject = service
 
         // Resuming the connection allows the system to deliver more incoming messages.
         newConnection.resume()

@@ -4,10 +4,17 @@ DerivedData/
 build/
 xcuserdata/
 *.xcuserstate
+*.profraw
 
 # Local signing and machine-specific overrides
 *.local.xcconfig
 *.p12
+*.pfx
+*.cer
+*.crt
+*.der
+*.key
+*.pem
 *.mobileprovision
 *.provisionprofile
 
@@ -19,3 +26,7 @@ TestFiles/Benchmarks/
 TestFiles/Generated/
 *.stepcache
 *.scenepkg
+*.stlc
+*.xcresult
+*.xcarchive
+*.profdata
